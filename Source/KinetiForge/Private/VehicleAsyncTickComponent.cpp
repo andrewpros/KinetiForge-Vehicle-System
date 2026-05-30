@@ -106,11 +106,8 @@ void UVehicleAsyncTickComponent::NativeAsyncTick(float DeltaTime)
 
 	if (!bUpdatePhysicsOnGameThread)
 	{
-		UpdateVehiclePhysics(DeltaTime);
+		UpdateAllPhysics(DeltaTime);
 	}
-
-	// just update this in worker thread because it doesn't hold any uobject pointer
-	UpdateAsyncSpringArms(DeltaTime);
 }
 
 void UVehicleAsyncTickComponent::AsyncPhysicsTickComponent(float DeltaTime, float SimTime)
@@ -119,12 +116,13 @@ void UVehicleAsyncTickComponent::AsyncPhysicsTickComponent(float DeltaTime, floa
 
 	if (bUpdatePhysicsOnGameThread)
 	{
-		UpdateVehiclePhysics(DeltaTime);
+		UpdateAllPhysics(DeltaTime);
 	}
 }
 
-void UVehicleAsyncTickComponent::UpdateVehiclePhysics(float DeltaTime)
+void UVehicleAsyncTickComponent::UpdateAllPhysics(float DeltaTime)
 {
+	// vehicle physics
 	for (TWeakObjectPtr<UVehicleDriveAssemblyComponent> DriveAssemblyPtr : DriveAssemblies)
 	{
 		if (UVehicleDriveAssemblyComponent* DriveAssembly = DriveAssemblyPtr.Get())
@@ -135,10 +133,17 @@ void UVehicleAsyncTickComponent::UpdateVehiclePhysics(float DeltaTime)
 			}
 		}
 	}
-}
 
-void UVehicleAsyncTickComponent::UpdateAsyncSpringArms(float DeltaTime)
-{
+	// aeros
+	for (TWeakObjectPtr<UVehicleWheelCoordinatorComponent> WheelCoordinatorPtr : WheelCoordinators)
+	{
+		if (UVehicleWheelCoordinatorComponent* WheelCoordinator = WheelCoordinatorPtr.Get())
+		{
+			WheelCoordinator->UpdateAeros(DeltaTime);
+		}
+	}
+
+	// async spring arms
 	for (TWeakObjectPtr<UVehicleAsyncSpringArmComponent> AsyncSpringArmPtr : AsyncSpringArms)
 	{
 		if (UVehicleAsyncSpringArmComponent* SpringArm = AsyncSpringArmPtr.Get())
