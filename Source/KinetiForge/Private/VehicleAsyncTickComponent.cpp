@@ -2,6 +2,7 @@
 
 #include "VehicleAsyncTickComponent.h"
 #include "VehicleDriveAssemblyComponent.h"
+#include "VehicleWheelCoordinatorComponent.h"
 #include "VehicleAsyncSpringArmComponent.h"
 #include "AsyncTickManager.h"
 
@@ -24,24 +25,34 @@ UVehicleAsyncTickComponent* UVehicleAsyncTickComponent::FindVehicleAsyncTickComp
 	}
 }
 
-void UVehicleAsyncTickComponent::Register(UVehicleDriveAssemblyComponent* newDriveAssembly)
+void UVehicleAsyncTickComponent::RegisterDriveAssembly(UVehicleDriveAssemblyComponent* newDriveAssembly)
 {
-	DriveAssemblies.AddUnique(newDriveAssembly);
+	if (IsValid(newDriveAssembly))DriveAssemblies.AddUnique(newDriveAssembly);
 }
 
-void UVehicleAsyncTickComponent::UnRegister(UVehicleDriveAssemblyComponent* targetDriveAssembly)
+void UVehicleAsyncTickComponent::UnRegisterDriveAssembly(UVehicleDriveAssemblyComponent* targetDriveAssembly)
 {
-	DriveAssemblies.Remove(targetDriveAssembly);
+	if (DriveAssemblies.Find(targetDriveAssembly))DriveAssemblies.Remove(targetDriveAssembly);
 }
 
-void UVehicleAsyncTickComponent::Register(UVehicleAsyncSpringArmComponent* newAsyncSpringArm)
+void UVehicleAsyncTickComponent::RegisterWheelCoordinator(UVehicleWheelCoordinatorComponent* newWheelCoordinator)
 {
-	AsyncSpringArms.AddUnique(newAsyncSpringArm);
+	if (IsValid(newWheelCoordinator))WheelCoordinators.AddUnique(newWheelCoordinator);
 }
 
-void UVehicleAsyncTickComponent::UnRegister(UVehicleAsyncSpringArmComponent* targetAsyncSpringArm)
+void UVehicleAsyncTickComponent::UnRegisterWheelCoordinator(UVehicleWheelCoordinatorComponent* targetWheelCoordinator)
 {
-	AsyncSpringArms.Remove(targetAsyncSpringArm);
+	if (WheelCoordinators.Find(targetWheelCoordinator))WheelCoordinators.Remove(targetWheelCoordinator);
+}
+
+void UVehicleAsyncTickComponent::RegisterAsyncSpringArm(UVehicleAsyncSpringArmComponent* newAsyncSpringArm)
+{
+	if (IsValid(newAsyncSpringArm))AsyncSpringArms.AddUnique(newAsyncSpringArm);
+}
+
+void UVehicleAsyncTickComponent::UnRegisterAsyncSpringArm(UVehicleAsyncSpringArmComponent* targetAsyncSpringArm)
+{
+	if (AsyncSpringArms.Find(targetAsyncSpringArm))AsyncSpringArms.Remove(targetAsyncSpringArm);
 }
 
 void UVehicleAsyncTickComponent::BeginPlay()
