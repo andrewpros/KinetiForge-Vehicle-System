@@ -828,7 +828,11 @@ void FVehicleSuspensionSolver::PrepareSimulation(
 	const FTransform& AsyncChassisWorldTransform,
 	const FVehicleSuspensionKinematicsConfig& Config)
 {
-	Ctx.WheelCompToChassisTransform = (FTransform3f)ComponentRelativeTransform;
+	Ctx.WheelCompToChassisTransform = FTransform3f(ComponentRelativeTransform);
+	if (!Ctx.WheelCompToChassisTransform.IsRotationNormalized())
+	{
+		Ctx.WheelCompToChassisTransform.NormalizeRotation();
+	}
 	Ctx.ChassisWorldTransform = AsyncChassisWorldTransform;
 
 	//dealing with transforms
