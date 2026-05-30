@@ -68,7 +68,7 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 	const FTransform& ComponentRelativeTransform,
 	const FTransform& AsyncChassisWorldTransform,
 	const UWorld* CurrentWorld,
-	Chaos::FRigidBodyHandle_Internal* ChassisHandle,
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
 	float InDeltaTime,
 	float InSteeringAngle, 
 	float InSwaybarForce)
@@ -194,7 +194,7 @@ void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FVehicleSuspensionSpringConfig& SpringConfig,
 	const FTransform& AsyncChassisWorldTransform,
-	Chaos::FRigidBodyHandle_Internal* ChassisHandle,
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
 	float InDeltaTime, 
 	float InSwaybarForce,
 	FVehicleSuspensionSimContext& Ctx,

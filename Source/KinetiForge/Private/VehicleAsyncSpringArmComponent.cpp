@@ -121,12 +121,12 @@ void UVehicleAsyncSpringArmComponent::BeginPlay()
 	// find async tick component
 	AActor* Owner = GetOwner();
 	if (Owner)AsyncTickComponent = UVehicleAsyncTickComponent::FindVehicleAsyncTickComponent(Owner);
-	if (UVehicleAsyncTickComponent* p = AsyncTickComponent.Get())p->Register(this);
+	if (UVehicleAsyncTickComponent* p = AsyncTickComponent.Get())p->RegisterAsyncSpringArm(this);
 }
 
 void UVehicleAsyncSpringArmComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
-	if (UVehicleAsyncTickComponent* p = AsyncTickComponent.Get())p->UnRegister(this);
+	if (UVehicleAsyncTickComponent* p = AsyncTickComponent.Get())p->UnRegisterAsyncSpringArm(this);
 
 	//...
 	Super::OnComponentDestroyed(bDestroyingHierarchy);

@@ -192,11 +192,11 @@ bool UVehicleWheelComponent::InitializeMeshComponents()
 	return RefreshWheelMesh();
 }
 
-void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* InChassisHandle)
+void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* const ChassisHandle)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_ApplyForce);
 
-	if (!Suspension.State.bHitGround)return;
+	if (!Suspension.State.bHitGround || ChassisHandle == nullptr)return;
 
 	FVector WidthBias = FVector(0.f);
 	FVector PosToApplyImpulse = FVector(0.f);
@@ -216,8 +216,7 @@ void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* I
 	}
 
 	// get world com
-	Chaos::FVec3 ChassisWorldCOM = InChassisHandle != nullptr ? 
-		Chaos::FParticleUtilitiesGT::GetCoMWorldPosition(InChassisHandle) : ChassisAsyncWorldTransform.GetLocation();
+	Chaos::FVec3 ChassisWorldCOM = Chaos::FParticleUtilitiesGT::GetCoMWorldPosition(ChassisHandle);
 
 	// get arm
 	Chaos::FVec3 LeverArmVec = PosToApplyImpulse - ChassisWorldCOM;
@@ -234,12 +233,9 @@ void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* I
 	Impulse *= 100.;	// because of the unit of unreal engine
 
 	// apply force to Chassis
-	if (InChassisHandle)
-	{
-		FVector AngularImpulse = FVector::CrossProduct(LeverArmVec, Impulse);
-		InChassisHandle->SetLinearImpulse(InChassisHandle->LinearImpulse() + Impulse, false);
-		InChassisHandle->SetAngularImpulse(InChassisHandle->AngularImpulse() + AngularImpulse, false);
-	}
+	FVector AngularImpulse = FVector::CrossProduct(LeverArmVec, Impulse);
+	ChassisHandle->SetLinearImpulse(ChassisHandle->LinearImpulse() + Impulse, false);
+	ChassisHandle->SetAngularImpulse(ChassisHandle->AngularImpulse() + AngularImpulse, false);
 
 	// also add force to the contacted component
 	if (UPrimitiveComponent* HitComponent = Suspension.RayCastResult.Component.Get())
@@ -259,12 +255,12 @@ void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* I
 }
 
 void UVehicleWheelComponent::PreStepIndependentSuspension(
-	float InMacroDeltaTime, 
-	float InSteeringAngle, 
-	float InSwaybarForce)
+	const float InMacroDeltaTime,
+	const float InSteeringAngle,
+	const float InSwaybarForce)
 {
-	// get rigid handle to get world com position
-	ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+
 	if (!ChassisHandle)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("WheelPhysics: No Valid Chassis!!!"));
@@ -298,13 +294,14 @@ void UVehicleWheelComponent::PreStepIndependentSuspension(
 }
 
 void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
-	float InSteeringAngle, 
-	FVector& OutHitWorldLocation, 
-	FVehicleSuspensionSimContext& Ctx)
+	FVehicleSuspensionSimContext& Ctx,
+	const float InSteeringAngle,
+	FVector& OutHitWorldLocation)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
-	ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+
 	if (!ChassisHandle)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("WheelPhysics: No Valid Chassis!!!"));
@@ -326,13 +323,15 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 }
 
 void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
-	float InMacroDeltaTime, 
-	float InSwaybarForce, 
-	FVehicleSuspensionSimContext& Ctx, 
-	const float InTrackWidth, 
-	const FVector& InThisWheelHitWorldLocation, 
+	FVehicleSuspensionSimContext& Ctx,
+	const float InMacroDeltaTime,
+	const float InSwaybarForce,
+	const float InTrackWidth,
+	const FVector& InThisWheelHitWorldLocation,
 	const FVector& InOtherWheelHitWorldLocation)
 {
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+
 	if (!ChassisHandle)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("WheelPhysics: No Valid Chassis!!!"));
@@ -376,6 +375,8 @@ void UVehicleWheelComponent::SubStepWheel(
 void UVehicleWheelComponent::PostStepApplyForce()
 {
 	Wheel.PostStep();
+
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
 	ApplyWheelForce(ChassisHandle);
 }
 
@@ -665,6 +666,8 @@ void UVehicleWheelComponent::UpdatePhysics(
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
+	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
+
 	PreStepIndependentSuspension(
 		InPhysicsDeltaTime,
 		InSteeringAngle,
@@ -719,9 +722,9 @@ void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
 	StartPreStepSolidAxleSuspension(
+		Ctx,
 		InSteeringAngle,
-		OutHitWorldLocation,
-		Ctx
+		OutHitWorldLocation
 	);
 }
 
@@ -741,9 +744,9 @@ void UVehicleWheelComponent::FinalizeUpdateSolidAxlePhysics(
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
 	FinalizePreStepSolidAxleSuspension(
+		Ctx,
 		InPhysicsDeltaTime,
 		InSwaybarForce,
-		Ctx,
 		InTrackWidth,
 		InThisWheelHitWorldLocation,
 		InOtherWheelHitWorldLocation

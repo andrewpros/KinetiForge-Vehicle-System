@@ -7,6 +7,7 @@
 #include "VehicleAsyncTickComponent.generated.h"
 
 class UVehicleDriveAssemblyComponent;
+class UVehicleWheelCoordinatorComponent;
 class UVehicleAsyncSpringArmComponent;
 class FAsyncTickManager;
 
@@ -24,14 +25,18 @@ public:
 
 	static UVehicleAsyncTickComponent* FindVehicleAsyncTickComponent(AActor* VehicleActor);
 
-	void Register(UVehicleDriveAssemblyComponent* newDriveAssembly);
-	void UnRegister(UVehicleDriveAssemblyComponent* targetDriveAssembly);
+	void RegisterDriveAssembly(UVehicleDriveAssemblyComponent* newDriveAssembly);
+	void UnRegisterDriveAssembly(UVehicleDriveAssemblyComponent* targetDriveAssembly);
 
-	void Register(UVehicleAsyncSpringArmComponent* newAsyncSpringArm);
-	void UnRegister(UVehicleAsyncSpringArmComponent* targetAsyncSpringArm);
+	void RegisterWheelCoordinator(UVehicleWheelCoordinatorComponent* newWheelCoordinator);
+	void UnRegisterWheelCoordinator(UVehicleWheelCoordinatorComponent* targetWheelCoordinator);
+
+	void RegisterAsyncSpringArm(UVehicleAsyncSpringArmComponent* newAsyncSpringArm);
+	void UnRegisterAsyncSpringArm(UVehicleAsyncSpringArmComponent* targetAsyncSpringArm);
 
 protected:
 	TArray<TWeakObjectPtr<UVehicleDriveAssemblyComponent>> DriveAssemblies;
+	TArray<TWeakObjectPtr<UVehicleWheelCoordinatorComponent>> WheelCoordinators;
 	TArray<TWeakObjectPtr<UVehicleAsyncSpringArmComponent>> AsyncSpringArms;
 
 protected:

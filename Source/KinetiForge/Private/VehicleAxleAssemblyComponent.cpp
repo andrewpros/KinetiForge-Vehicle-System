@@ -257,26 +257,26 @@ void UVehicleAxleAssemblyComponent::PreStepSolidAxleSuspension(
 	FVector LeftHitLocation, RightHitLocation;
 
 	FVehicleSuspensionSimContext LeftCtx;
-	WheelL->StartPreStepSolidAxleSuspension(SteerAngleLeft, LeftHitLocation, LeftCtx);
+	WheelL->StartPreStepSolidAxleSuspension(LeftCtx, SteerAngleLeft, LeftHitLocation);
 
 	FVehicleSuspensionSimContext RightCtx;
-	WheelR->StartPreStepSolidAxleSuspension(SteerAngleRight, RightHitLocation, RightCtx);
+	WheelR->StartPreStepSolidAxleSuspension(RightCtx, SteerAngleRight, RightHitLocation);
 
 	float TrackWidth = GetTrackWidth();
 
 	WheelL->FinalizePreStepSolidAxleSuspension(
+		LeftCtx,
 		InMacroDeltaTime,
 		AntiRollBarForce,
-		LeftCtx,
 		TrackWidth,
 		LeftHitLocation,
 		RightHitLocation
 	);
 
 	WheelR->FinalizePreStepSolidAxleSuspension(
+		RightCtx,
 		InMacroDeltaTime,
 		-AntiRollBarForce,
-		RightCtx,
 		TrackWidth,
 		RightHitLocation,
 		LeftHitLocation

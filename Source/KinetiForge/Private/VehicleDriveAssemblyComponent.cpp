@@ -73,7 +73,7 @@ void UVehicleDriveAssemblyComponent::BeginPlay()
 	if (WheelCoordinator.IsValid())WheelCoordinator->RegisterDriveAssembly(this);
 
 	VehicleAsyncTickComponent = UVehicleAsyncTickComponent::FindVehicleAsyncTickComponent(GetOwner());
-	if (VehicleAsyncTickComponent.IsValid())VehicleAsyncTickComponent->Register(this);
+	if (VehicleAsyncTickComponent.IsValid())VehicleAsyncTickComponent->RegisterDriveAssembly(this);
 
 	SearchExistingAxles();
 	GeneratePowerUnit();
@@ -118,7 +118,7 @@ void UVehicleDriveAssemblyComponent::OnComponentDestroyed(bool bDestroyingHierar
 
 	if (TransferCase.IsValid() && !TransferCase->IsBeingDestroyed())TransferCase->DestroyComponent();
 
-	if (VehicleAsyncTickComponent.IsValid())VehicleAsyncTickComponent->UnRegister(this);
+	if (VehicleAsyncTickComponent.IsValid())VehicleAsyncTickComponent->UnRegisterDriveAssembly(this);
 
 	Chassis = nullptr;
 
