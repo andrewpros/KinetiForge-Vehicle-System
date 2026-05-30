@@ -5,6 +5,8 @@
 #include "VehicleWheelComponent.h"
 #include "VehicleAxleAssemblyComponent.h"
 #include "VehicleDriveAssemblyComponent.h"
+#include "VehicleAeroBaseComponent.h"
+#include "VehicleAsyncTickComponent.h"
 #include "VehicleUtilities.h"
 
 DEFINE_LOG_CATEGORY(LogWheelCoordinator);
@@ -31,6 +33,11 @@ void UVehicleWheelCoordinatorComponent::BeginPlay()
 
 	TimeSinceLastRefresh = FMath::FRandRange(0.f, RefreshInterval);
 	TimeSinceLastRefresh += RefreshInterval;
+
+	// find async tick component
+	AActor* Owner = GetOwner();
+	if (Owner)AsyncTickComponent = UVehicleAsyncTickComponent::FindVehicleAsyncTickComponent(Owner);
+	if (UVehicleAsyncTickComponent* p = AsyncTickComponent.Get())p->RegisterWheelCoordinator(this);
 }
 
 void UVehicleWheelCoordinatorComponent::OnRegister()
@@ -220,19 +227,44 @@ void UVehicleWheelCoordinatorComponent::NotifyWheelMoved()
 
 void UVehicleWheelCoordinatorComponent::RegisterWheel(UVehicleWheelComponent* NewWheel)
 {
-	RegisteredWheels.AddUnique(NewWheel);
-	bMassMatrixDirty = true;
+	if (IsValid(NewWheel))
+	{
+		RegisteredWheels.AddUnique(NewWheel);
+		bMassMatrixDirty = true;
+	}
 }
 
 void UVehicleWheelCoordinatorComponent::RegisterAxle(UVehicleAxleAssemblyComponent* NewAxle)
 {
-	RegisteredAxles.AddUnique(NewAxle);
-	bWheelBaseDataDirty = true;
+	if (IsValid(NewAxle))
+	{
+		RegisteredAxles.AddUnique(NewAxle);
+		bWheelBaseDataDirty = true;
+	}
 }
 
-void UVehicleWheelCoordinatorComponent::RegisterDriveAssembly(UVehicleDriveAssemblyComponent* NewVehicleDriveAssemblyComponent)
+void UVehicleWheelCoordinatorComponent::RegisterDriveAssembly(UVehicleDriveAssemblyComponent* NewDriveAssembly)
 {
-	RegisteredDriveAssemblies.AddUnique(NewVehicleDriveAssemblyComponent);
+	if (IsValid(NewDriveAssembly))
+	{
+		RegisteredDriveAssemblies.AddUnique(NewDriveAssembly);
+	}
+}
+
+void UVehicleWheelCoordinatorComponent::RegisterAero(UVehicleAeroBaseComponent* NewAero)
+{
+	if (IsValid(NewAero))
+	{
+		RegisteredAeros.AddUnique(NewAero);
+	}
+}
+
+void UVehicleWheelCoordinatorComponent::UnregisterAero(UVehicleAeroBaseComponent* Aero)
+{
+	if (RegisteredAeros.Find(Aero))
+	{
+		RegisteredAeros.Remove(Aero);
+	}
 }
 
 bool UVehicleWheelCoordinatorComponent::ComputeSprungMasses(const TArray<FVector3f>& MassSpringPositions, const float TotalMass, TArray<float>& OutSprungMasses)
@@ -490,4 +522,59 @@ TArray<UVehicleAxleAssemblyComponent*> UVehicleWheelCoordinatorComponent::GetReg
 		}
 	}
 	return Axles;
+}
+
+void UVehicleWheelCoordinatorComponent::UpdateAeros(const float InDeltaTime)
+{
+	if (UPrimitiveComponent* ChassisRaw = Chassis.Get())
+	{
+		// get chassis handle
+		Chaos::FRigidBodyHandle_Internal* ChassisHandle = UVehicleUtilities::GetInternalHandle(ChassisRaw);
+		if (ChassisHandle && ChassisHandle->CanTreatAsKinematic())
+		{
+			FTransform ChassisAsyncWorldTransform = Chaos::FParticleUtilitiesGT::GetActorWorldTransform(ChassisHandle);
+
+			// get center of mass and velocity
+			const bool bIsRigid = ChassisHandle->CanTreatAsRigid();
+
+			FVector CoMWorldLocation = bIsRigid ?
+				Chaos::FParticleUtilitiesGT::GetCoMWorldPosition(ChassisHandle) :
+				Chaos::FParticleUtilitiesGT::GetActorWorldTransform(ChassisHandle).GetTranslation();
+
+			FVector LinearVelocity = ChassisHandle->V();
+			FVector AngularVelocity = ChassisHandle->W();
+			FVector WindVelocity = FVector::ZeroVector;
+
+			// call all aeros
+			FVector SumLinearForce = FVector::ZeroVector;
+			FVector SumAngularTorque = FVector::ZeroVector;
+
+			for (TWeakObjectPtr<UVehicleAeroBaseComponent> AeroWeakPtr : RegisteredAeros)
+			{
+				if (UVehicleAeroBaseComponent* AeroComponent = AeroWeakPtr.Get())
+				{
+					FVector Force = FVector::ZeroVector;
+					FVector Torque = FVector::ZeroVector;
+					AeroComponent->CalculateAerodynamics(
+						InDeltaTime,
+						CoMWorldLocation,
+						LinearVelocity,
+						AngularVelocity,
+						ChassisAsyncWorldTransform,
+						WindVelocity,
+						Force, Torque
+					);
+					SumLinearForce += Force;
+					SumAngularTorque += Torque;
+				}
+			}
+
+			const float UnitScale = 1.f;
+			FVector LinearImpulse = SumLinearForce * InDeltaTime * UnitScale;
+			FVector AngularImpulse = SumAngularTorque * InDeltaTime * UnitScale;
+
+			ChassisHandle->SetLinearImpulse(ChassisHandle->LinearImpulse() + LinearImpulse, false);
+			ChassisHandle->SetAngularImpulse(ChassisHandle->AngularImpulse() + AngularImpulse, false);
+		}
+	}
 }

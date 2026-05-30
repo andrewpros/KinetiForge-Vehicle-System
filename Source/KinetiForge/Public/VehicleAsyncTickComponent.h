@@ -55,7 +55,6 @@ protected:
 	virtual void AsyncPhysicsTickComponent(float DeltaTime, float SimTime) override;
 
 private:
-	void UpdateVehiclePhysics(float DeltaTime);
-	void UpdateAsyncSpringArms(float DeltaTime);
+	void UpdateAllPhysics(float DeltaTime);
 	FAsyncTickManager* CachedAsyncTickManager = nullptr;
 };
