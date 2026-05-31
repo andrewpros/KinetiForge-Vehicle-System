@@ -259,14 +259,17 @@ void FVehicleSuspensionSolver::RoughlyInitializeState(const FTransform& Componen
 {
 	float SideSign = ComponentRelativeTransform.GetLocation().Y >= 0.f ? 1.f : -1.f;
 
-	// 1. 粗略算一下塔顶当前的真实底盘坐标
+	// 1. 在组件本地空间定义塔顶
 	FVector3f TopMountLocalPos = KineConfig.TopMountLocalLocation;
 	TopMountLocalPos.Y *= SideSign;
-	FVector3f TopMountChassis = (FVector3f)ComponentRelativeTransform.TransformPositionNoScale((FVector)TopMountLocalPos);
 
-	// 2. 假设下球头就在塔顶的"正下方" (减震器的当前估算长度)
+	// 2. 沿着组件自身的局部 Up 轴（或者摆臂轨迹面）向下做初始估计，而不是底盘 Z 轴
 	float GuessStrutLen = KineConfig.MinStrutLength + KineConfig.Stroke;
-	InState.LowerBallJointChassisLocation = TopMountChassis - FVector3f(0.f, 0.f, GuessStrutLen);
+	FVector3f InitialLowerBallJointLocal = TopMountLocalPos - FVector3f(0.f, 0.f, GuessStrutLen);
+
+	// 3. 一次性统一转换到底盘空间，保证纵向 X_c 的线性同步，绝不污染方向向量
+	FTransform3f CompToChassis = (FTransform3f)ComponentRelativeTransform;
+	InState.LowerBallJointChassisLocation = CompToChassis.TransformPositionNoScale(InitialLowerBallJointLocal);
 
 	FQuat4f SpindleMountRotation = GetSpindleMountQuat(
 		KineConfig.StaticSpindleRotation,
@@ -276,7 +279,7 @@ void FVehicleSuspensionSolver::RoughlyInitializeState(const FTransform& Componen
 	FQuat4f HubChassisRot = (SpindleMountRotation).GetNormalized();
 	InState.HubChassisRotation = HubChassisRot;
 
-	// 3. 把 HubOffset 也跟着旋转过去，作为 Hub 的粗略位置
+	// 4. 把 HubOffset 也跟着旋转过去，作为 Hub 的粗略位置
 	FVector3f HubOffset = KineConfig.HubOffsetFromLowerJoint;
 	HubOffset.Y *= SideSign;
 	FVector3f HubOffsetFromLowerJointChassis = HubChassisRot.RotateVector(HubOffset);
@@ -346,7 +349,7 @@ FVehicleSuspensionSimState FVehicleSuspensionSolver::SolveKinematicsAtExtension(
 }
 
 void FVehicleSuspensionSolver::StartSolveSolidAxleAtExtension(
-	const FVehicleSuspensionSimState& PrevState,
+	const FVehicleSuspensionSimState* PrevState,
 	const float WheelRadius,
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FTransform& ComponentRelativeTransform,
@@ -355,7 +358,18 @@ void FVehicleSuspensionSolver::StartSolveSolidAxleAtExtension(
 	FVector& OutHitWorldLocation,
 	FVehicleSuspensionSimContext& Ctx)
 {
-	CopyStateToContext(PrevState, Ctx);
+	FVehicleSuspensionSimState NewState;
+
+	if (PrevState != nullptr)
+	{
+		NewState = *PrevState;
+	}
+	else
+	{
+		RoughlyInitializeState(ComponentRelativeTransform, KineConfig, NewState);
+	}
+
+	CopyStateToContext(NewState, Ctx);
 	Ctx.SuspensionExtensionRatio = InExtensionRatio;
 	Ctx.SteeringAngle = InSteeringAngle;
 
@@ -372,7 +386,8 @@ void FVehicleSuspensionSolver::StartSolveSolidAxleAtExtension(
 	Ctx.HitDistance = InExtensionRatio * Ctx.RayCastLength + WheelRadius;
 	float DistanceToRayCastStart = FMath::Max(0.f, Ctx.HitDistance - WheelRadius);
 	FVector RayDir = (Ctx.RayCastStartWorldLocation - Ctx.RayCastEndWorldLocation).GetSafeNormal();
-	OutHitWorldLocation = Ctx.RayCastStartWorldLocation - RayDir * DistanceToRayCastStart;
+	FVector HubOffsetWorld = (FVector)Ctx.HubOffsetFromLowerJointChassis;
+	OutHitWorldLocation = Ctx.RayCastStartWorldLocation - RayDir * DistanceToRayCastStart - HubOffsetWorld;
 }
 
 FVehicleSuspensionSimState FVehicleSuspensionSolver::FinalizeSolveSolidAxleAtExtension(

@@ -357,10 +357,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void ApplySuspensionStateDirect(float InExtensionRatio = 1.f, float InSteeringAngle = 0.f);
 
+	void RoughlyInitializeSuspensionState(
+		FVehicleSuspensionSimState& InState
+	);
+
 	void StartApplySolidAxleStateDirect(
 		float InExtensionRatio,
 		float InSteeringAngle,
 		FVector& OutHitWorldLocation,
+		const FVehicleSuspensionSimState* PrevState,
 		FVehicleSuspensionSimContext& Ctx
 	);
 
