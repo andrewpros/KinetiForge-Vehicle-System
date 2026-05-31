@@ -77,7 +77,7 @@ public:
 		const FVehicleSuspensionSimState* PrevState = nullptr
 	);
 	static void StartSolveSolidAxleAtExtension(
-		const FVehicleSuspensionSimState& PrevState,
+		const FVehicleSuspensionSimState* PrevState,
 		const float WheelRadius,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FTransform& ComponentRelativeTransform,

@@ -563,6 +563,10 @@ void UVehicleAxleAssemblyComponent::InitializeWheels()
 	{
 		WheelR->InitializeWheel();
 	}
+	if (WheelL && WheelR)
+	{
+		ApplySolidAxleStateDirect();
+	}
 }
 
 void UVehicleAxleAssemblyComponent::UpdatePhysics(
@@ -721,16 +725,21 @@ void UVehicleAxleAssemblyComponent::ApplySolidAxleStateDirect(float InExtensionR
 {
 	if (!LeftWheel.IsValid() || !RightWheel.IsValid())return;
 
+	FVehicleSuspensionSimState LeftState;
+	FVehicleSuspensionSimState RightState;
+	LeftWheel->RoughlyInitializeSuspensionState(LeftState);
+	RightWheel->RoughlyInitializeSuspensionState(RightState);
+
 	const int32 Iteration = 2;
 	for (int32 i = 0; i < Iteration; i++)
 	{
 		FVector LeftHitLocation, RightHitLocation;
 
 		FVehicleSuspensionSimContext LeftCtx;
-		LeftWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, LeftHitLocation, LeftCtx);
+		LeftWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, LeftHitLocation, &LeftState, LeftCtx);
 
 		FVehicleSuspensionSimContext RightCtx;
-		RightWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, RightHitLocation, RightCtx);
+		RightWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, RightHitLocation, &RightState, RightCtx);
 
 		// the track width
 		float TrackWidth = GetTrackWidth();
@@ -747,6 +756,9 @@ void UVehicleAxleAssemblyComponent::ApplySolidAxleStateDirect(float InExtensionR
 			RightHitLocation,
 			LeftHitLocation
 		);
+
+		LeftState = LeftWheel->GetSuspensionState(); 
+		RightState = RightWheel->GetSuspensionState();
 	}
 }
 
@@ -889,6 +901,10 @@ bool UVehicleAxleAssemblyComponent::SearchExistingWheels()
 		if (bIsRightValid)
 		{
 			RightWheel->InitializeWheel();
+		}
+		if (bIsLeftValid && bIsRightValid)
+		{
+			ApplySolidAxleStateDirect();
 		}
 		return bIsLeftValid && bIsRightValid;
 	}

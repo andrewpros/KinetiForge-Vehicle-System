@@ -780,14 +780,23 @@ void UVehicleWheelComponent::ApplySuspensionStateDirect(float InExtensionRatio, 
 	}
 }
 
+void UVehicleWheelComponent::RoughlyInitializeSuspensionState(FVehicleSuspensionSimState& InState)
+{
+	Suspension.RoughlyInitializeState(
+		GetRelativeTransform(),
+		SuspensionKinematicsConfig,
+		InState);
+}
+
 void UVehicleWheelComponent::StartApplySolidAxleStateDirect(
 	float InExtensionRatio, 
 	float InSteeringAngle,
 	FVector& OutHitWorldLocation,
+	const FVehicleSuspensionSimState* PrevState,
 	FVehicleSuspensionSimContext& Ctx)
 {
 	Suspension.StartSolveSolidAxleAtExtension(
-		Suspension.State,
+		PrevState,
 		WheelConfig.Radius,
 		SuspensionKinematicsConfig,
 		GetRelativeTransform(),
