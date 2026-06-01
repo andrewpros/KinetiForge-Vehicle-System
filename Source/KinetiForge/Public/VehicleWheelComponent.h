@@ -248,7 +248,7 @@ public:
 	FTransform3f GetHubChassisTransform();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
-	float GetSuspensionLength() { return Suspension.State.SuspensionCurrentLength; }
+	float GetSuspensionLength() { return Suspension.State.StrutCurrentLength; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
 	float GetSteeringAngle() { return Suspension.State.SteeringAngle; }

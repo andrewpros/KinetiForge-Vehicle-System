@@ -313,6 +313,7 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 	Suspension.StartUpdateSolidAxle(
 		WheelConfig.Radius,
 		WheelConfig.Width,
+		WheelConfig.Inertia,
 		SuspensionKinematicsConfig,
 		GetRelativeTransform(),
 		ChassisAsyncWorldTransform,
@@ -340,7 +341,6 @@ void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 
 	Suspension.FinalizeUpdateSolidAxle(
 		WheelConfig.Radius,
-		WheelConfig.Inertia,
 		SuspensionKinematicsConfig,
 		SuspensionSpringConfig,
 		ChassisAsyncWorldTransform,
@@ -1162,7 +1162,7 @@ void UVehicleWheelComponent::UpdateShockAbsorberAnim(USceneComponent* InUpperStr
 	{
 		// 弹簧的当前长度，可能需要减去一些两端底座的厚度常数，这里简化为总长度
 		// 如果你的弹簧只是减震器的一部分，你可以传入一个 SpringOffset 扣除掉不可压缩长度
-		float ScaleZ = Suspension.State.SuspensionCurrentLength / FMath::Max(0.1f, SpringDesignLength);
+		float ScaleZ = Suspension.State.StrutCurrentLength / FMath::Max(0.1f, SpringDesignLength);
 
 		FVector SpringScale = FVector::OneVector;
 		// 同样的魔法：根据传入的轴向，只缩放那个轴

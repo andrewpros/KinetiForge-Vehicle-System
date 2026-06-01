@@ -38,6 +38,7 @@ public:
 	void StartUpdateSolidAxle(
 		const float WheelRadius,
 		const float WheelWidth,
+		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
@@ -48,7 +49,6 @@ public:
 	);
 	void FinalizeUpdateSolidAxle(
 		const float WheelRadius,
-		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& AsyncChassisWorldTransform,
@@ -202,7 +202,9 @@ private:
 	static void ComputeHitDistance(
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
-		const float EquivalentSphereTraceRadius
+		const float WheelInertia,
+		const float EquivalentSphereTraceRadius,
+		const FVehicleSuspensionKinematicsConfig& Config
 	);
 	static void CacheImpactFriction(
 		FVehicleSuspensionSimContext& Ctx
@@ -257,6 +259,7 @@ private:
 		const UWorld* World,
 		const float WheelRadius,
 		const float HalfWheelWidth,
+		const float WheelInertia,
 		const FCollisionQueryParams& QueryParams,
 		const FCollisionResponseParams& ResponseParams,
 		const FVehicleSuspensionKinematicsConfig& Config
@@ -364,7 +367,6 @@ private:
 	static void ComputeSuspensionForce(
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
-		const float WheelInertia,
 		const FVehicleChassisSimState& ChassisState,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
