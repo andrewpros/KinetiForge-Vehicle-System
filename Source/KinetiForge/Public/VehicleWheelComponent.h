@@ -417,6 +417,9 @@ public:
 	bool GetRayCastResult() { return Suspension.State.bHitGround; }
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
+	bool GetIsWheelOnGround() { return Suspension.State.bWheelOnGround; }
+
+	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	UPrimitiveComponent* GetRayCastHitComponent() { return Suspension.RayCastResult.Component.Get(); }
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")

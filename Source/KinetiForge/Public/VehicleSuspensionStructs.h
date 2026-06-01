@@ -131,6 +131,13 @@ struct KINETIFORGE_API FVehicleSuspensionKinematicsConfig
 	FRotator3f StaticSpindleRotation = FRotator3f(0.f, 0.f, 5.f);
 
 	/**
+	* Unsprung mass but not including the mass of the wheel.
+	* Set to 0 or <0 to disable unsprung mass calculation. (Better handling and more stable, but less realistic, if disabled)
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float SuspensionAndBrakeMass = 0.f;
+
+	/**
 	* X: SuspensionCompressionRatio; Y:CamberGain; Only enabled when the suspension type is double-wishbone
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

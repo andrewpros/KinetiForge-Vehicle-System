@@ -975,30 +975,42 @@ void FVehicleSuspensionSolver::ComputeHitDistance(
 
 	const float MaxExtension = FMath::Clamp(HitDistanceNoBias / Ctx.RayCastLength, 0.f, 1.f);
 	const float MaxCurrentLength = MaxExtension * Config.Stroke;
-
 	const float LastStrutLength = Ctx.StrutCurrentLength;
-	const float LastStrutVelocity = Ctx.StrutCurrentVelocity;
-	const float LastStrutForce = Ctx.InternalStrutForce;
-	const float GravityForce = Ctx.VirtualUnsprungMass * FMath::Abs(Ctx.WorldGravityZ) * FMath::Abs(Ctx.StrutChassisDirection.Z);
-	const float TotalForce = LastStrutForce + GravityForce;
 
-	// integrate unsprung mass position
-	const float EstimatedWheelMass = (2.0f * WheelInertia) / (WheelRadius * WheelRadius * 0.0001f); // cm to m
-	Ctx.VirtualUnsprungMass = EstimatedWheelMass + 20.0f; // 20 is a magic number, the weight of suspension & brake
+	bool bSimulateUnsprungMass = Config.SuspensionAndBrakeMass > SMALL_NUMBER;
+	if (bSimulateUnsprungMass)
+	{
+		const float LastStrutVelocity = Ctx.StrutCurrentVelocity;
+		const float LastStrutForce = Ctx.InternalStrutForce;
+		const float GravityForce = Ctx.VirtualUnsprungMass * FMath::Abs(Ctx.WorldGravityZ) * FMath::Abs(Ctx.StrutChassisDirection.Z);
+		const float TotalForce = LastStrutForce + GravityForce;
 
-	const float UnsprungAccel_CM = (TotalForce / Ctx.VirtualUnsprungMass) * 100.f;
-	float NewStrutVelocity = LastStrutVelocity + UnsprungAccel_CM * Ctx.PhysicsDeltaTime;
-	float NewStrutLength = LastStrutLength + NewStrutVelocity * Ctx.PhysicsDeltaTime;
-	Ctx.bWheelOnGround = NewStrutLength >= MaxCurrentLength;
+		// integrate unsprung mass position
+		const float EstimatedWheelMass = (2.0f * WheelInertia) / (WheelRadius * WheelRadius * 0.0001f); // cm to m
+		Ctx.VirtualUnsprungMass = EstimatedWheelMass + Config.SuspensionAndBrakeMass;
 
-	// clamp
-	NewStrutLength = FMath::Clamp(NewStrutLength, 0.f, MaxCurrentLength);
-	// recalculate velocity
-	NewStrutVelocity = (NewStrutLength - LastStrutLength) / Ctx.PhysicsDeltaTime;
+		const float UnsprungAccel_CM = (TotalForce / Ctx.VirtualUnsprungMass) * 100.f;
+		float NewStrutVelocity = LastStrutVelocity + UnsprungAccel_CM * Ctx.PhysicsDeltaTime;
+		float NewStrutLength = LastStrutLength + NewStrutVelocity * Ctx.PhysicsDeltaTime;
+		Ctx.bWheelOnGround = NewStrutLength >= MaxCurrentLength;
 
-	Ctx.StrutCurrentLength = NewStrutLength;
-	Ctx.StrutCurrentVelocity = NewStrutVelocity;
-	Ctx.CurrentExtensionRatio = NewStrutLength / Config.Stroke;
+		// clamp
+		NewStrutLength = FMath::Clamp(NewStrutLength, 0.f, MaxCurrentLength);
+		// recalculate velocity
+		NewStrutVelocity = (NewStrutLength - LastStrutLength) / Ctx.PhysicsDeltaTime;
+
+		Ctx.StrutCurrentLength = NewStrutLength;
+		Ctx.StrutCurrentVelocity = NewStrutVelocity;
+		Ctx.CurrentExtensionRatio = NewStrutLength / Config.Stroke;
+	}
+	else
+	{
+		Ctx.VirtualUnsprungMass = 0.f;
+		Ctx.bWheelOnGround = Ctx.bHitGround;
+		Ctx.StrutCurrentLength = MaxCurrentLength;
+		Ctx.StrutCurrentVelocity = (Ctx.StrutCurrentLength - LastStrutLength) / Ctx.PhysicsDeltaTime;
+		Ctx.CurrentExtensionRatio = MaxExtension;
+	}
 }
 
 void FVehicleSuspensionSolver::CacheImpactFriction(

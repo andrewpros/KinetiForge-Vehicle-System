@@ -379,7 +379,7 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 			);
 			break;
 		}
-		State.NumOfWheelOnGround = WheelL->GetRayCastResult() + WheelR->GetRayCastResult();
+		State.NumOfWheelOnGround = WheelL->GetIsWheelOnGround() + WheelR->GetIsWheelOnGround();
 		WheelL->PreStepWheel(InMacroDeltaTime);
 		WheelR->PreStepWheel(InMacroDeltaTime);
 	}
@@ -392,7 +392,7 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 				State.LeftWheelSteeringAngle,
 				0.f
 			);
-			State.NumOfWheelOnGround = WheelL->GetRayCastResult();
+			State.NumOfWheelOnGround = WheelL->GetIsWheelOnGround();
 			WheelL->PreStepWheel(InMacroDeltaTime);
 		}
 
@@ -403,7 +403,7 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 				State.RightWheelSteeringAngle,
 				0.f
 			);
-			State.NumOfWheelOnGround = WheelR->GetRayCastResult();
+			State.NumOfWheelOnGround = WheelR->GetIsWheelOnGround();
 			WheelR->PreStepWheel(InMacroDeltaTime);
 		}
 	}
