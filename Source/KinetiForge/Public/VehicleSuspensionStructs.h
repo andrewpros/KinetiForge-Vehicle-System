@@ -135,7 +135,7 @@ struct KINETIFORGE_API FVehicleSuspensionKinematicsConfig
 	* Set to 0 or <0 to disable unsprung mass calculation. (Better handling and more stable, but less realistic, if disabled)
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float SuspensionAndBrakeMass = 0.f;
+	float SuspensionAndBrakeMass = 20.f;
 
 	/**
 	* X: SuspensionCompressionRatio; Y:CamberGain; Only enabled when the suspension type is double-wishbone

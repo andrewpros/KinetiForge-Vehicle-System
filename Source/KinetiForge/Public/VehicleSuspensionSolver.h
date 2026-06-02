@@ -202,8 +202,12 @@ private:
 	static void ComputeHitDistance(
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
+		const float EquivalentSphereTraceRadius
+	);
+	static void UpdateStrutLength(
+		FVehicleSuspensionSimContext& Ctx,
+		const float WheelRadius,
 		const float WheelInertia,
-		const float EquivalentSphereTraceRadius,
 		const FVehicleSuspensionKinematicsConfig& Config
 	);
 	static void CacheImpactFriction(

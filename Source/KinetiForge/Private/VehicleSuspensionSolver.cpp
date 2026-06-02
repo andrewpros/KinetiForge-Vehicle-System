@@ -103,6 +103,8 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 		KineConfig
 	);
 
+	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, KineConfig);
+
 	switch (KineConfig.SuspensionType)
 	{
 	default:
@@ -180,6 +182,7 @@ void FVehicleSuspensionSolver::StartUpdateSolidAxle(
 
 	ComputeRayCastLocation(Ctx, KineConfig);
 	SuspensionRayCast(Ctx, CurrentWorld, WheelRadius, WheelWidth * 0.5f, WheelInertia, QueryParams, ResponseParams, KineConfig);
+	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, KineConfig);
 
 	const float EquivHitDistance = Ctx.CurrentExtensionRatio * Ctx.RayCastLength;
 	float DistanceToRayCastStart = FMath::Max(0.f, EquivHitDistance);
@@ -965,12 +968,18 @@ bool FVehicleSuspensionSolver::ShouldDoRefinedTrace(
 void FVehicleSuspensionSolver::ComputeHitDistance(
 	FVehicleSuspensionSimContext& Ctx,
 	const float WheelRadius,
-	const float WheelInertia,
-	const float EquivalentSphereTraceRadius,
-	const FVehicleSuspensionKinematicsConfig& Config)
+	const float EquivalentSphereTraceRadius)
 {
 	Ctx.HitDistance = Ctx.bHitGround ?
 		Ctx.HitResult.Distance + EquivalentSphereTraceRadius : Ctx.RayCastLength + WheelRadius;
+}
+
+void FVehicleSuspensionSolver::UpdateStrutLength(
+	FVehicleSuspensionSimContext& Ctx,
+	const float WheelRadius,
+	const float WheelInertia,
+	const FVehicleSuspensionKinematicsConfig& Config)
+{
 	const float HitDistanceNoBias = FMath::Max(0.f, Ctx.HitDistance - WheelRadius);
 
 	const float MaxExtension = FMath::Clamp(HitDistanceNoBias / Ctx.RayCastLength, 0.f, 1.f);
@@ -992,7 +1001,7 @@ void FVehicleSuspensionSolver::ComputeHitDistance(
 		const float UnsprungAccel_CM = (TotalForce / Ctx.VirtualUnsprungMass) * 100.f;
 		float NewStrutVelocity = LastStrutVelocity + UnsprungAccel_CM * Ctx.PhysicsDeltaTime;
 		float NewStrutLength = LastStrutLength + NewStrutVelocity * Ctx.PhysicsDeltaTime;
-		Ctx.bWheelOnGround = NewStrutLength >= MaxCurrentLength;
+		Ctx.bWheelOnGround = NewStrutLength >= MaxCurrentLength && Ctx.bHitGround;
 
 		// clamp
 		NewStrutLength = FMath::Clamp(NewStrutLength, 0.f, MaxCurrentLength);
@@ -1239,7 +1248,7 @@ void FVehicleSuspensionSolver::SuspensionRayCast(
 	{
 		// reset the suspension
 		Ctx.bHitGround = false;
-		ComputeHitDistance(Ctx, WheelRadius, WheelInertia, 0.f, Config);
+		ComputeHitDistance(Ctx, WheelRadius, 0.f);
 		CacheImpactFriction(Ctx);
 		return;
 	}
@@ -1271,7 +1280,7 @@ void FVehicleSuspensionSolver::SuspensionRayCast(
 	}
 
 	CacheImpactFriction(Ctx);
-	ComputeHitDistance(Ctx, WheelRadius, WheelInertia, EquivalentSphereTraceRadius, Config);
+	ComputeHitDistance(Ctx, WheelRadius, EquivalentSphereTraceRadius);
 
 	if (Ctx.HitDistance < WheelRadius)
 	{
@@ -1279,7 +1288,7 @@ void FVehicleSuspensionSolver::SuspensionRayCast(
 		EquivalentSphereTraceRadius =
 			SuspensionLineTrace(Ctx, World, WheelRadius, HalfWheelWidth, QueryParams, ResponseParams, Config);
 		CacheImpactFriction(Ctx);
-		ComputeHitDistance(Ctx, WheelRadius, WheelInertia, EquivalentSphereTraceRadius, Config);
+		ComputeHitDistance(Ctx, WheelRadius, EquivalentSphereTraceRadius);
 	}
 }
 
@@ -2004,6 +2013,9 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FVehicleSuspensionCachedLUTs& LUTs)
 {
+	float DeltaTimeInv = UVehicleUtilities::SafeDivide(1.f, Ctx.PhysicsDeltaTime);
+	Ctx.StrutWorldDirection = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.StrutChassisDirection);
+
 	const Chaos::FVec3 EffectiveMass = CalculatePointEffectiveMass3D(
 		ChassisState.Mass,
 		ChassisState.WorldInvInertiaTensor,
@@ -2013,16 +2025,22 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 		Ctx.WheelWorldRightVector
 	);
 	Ctx.EffectiveSprungMassNormal = EffectiveMass.Z;
-
-	float DeltaTimeInv = UVehicleUtilities::SafeDivide(1.f, Ctx.PhysicsDeltaTime);
-	Ctx.StrutWorldDirection = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.StrutChassisDirection);
+	float ReducedMass = Ctx.EffectiveSprungMassNormal;
+	if (!Ctx.bWheelOnGround)
+	{
+		ReducedMass =
+			(Ctx.EffectiveSprungMassNormal * Ctx.VirtualUnsprungMass) /
+			(Ctx.EffectiveSprungMassNormal + Ctx.VirtualUnsprungMass);
+	}
+	const float MaxSpring = 4.f * ReducedMass * DeltaTimeInv * DeltaTimeInv;
+	// damper required to flip the sign of velocity in one frame
+	const float MaxDamping = ReducedMass * DeltaTimeInv;
 
 	const float CompressionRatio = 1.f - Ctx.CurrentExtensionRatio;
 	const float SpringCompression = KineConfig.Stroke - Ctx.StrutCurrentLength;
 	float MotionRatio = LUTs.MotionRatioCurve.FastEval(CompressionRatio).Value;
 
 	const float EquivSpringStiffness = SpringConfig.SpringStiffness * MotionRatio * MotionRatio;
-	const float MaxSpring = 4.f * Ctx.EffectiveSprungMassNormal * DeltaTimeInv * DeltaTimeInv;
 	const float ActiveSpring = FMath::Min(MaxSpring, EquivSpringStiffness);
 	float SpringForce = ActiveSpring * SpringCompression;
 
@@ -2031,7 +2049,6 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	if (SpringConfig.bUseDampingRatio)DamperStiffness *= GetCriticalDamping(SpringConfig.SpringStiffness, Ctx.StaticSprungMass);
 	
 	const float EquivDamperStiffness = DamperStiffness * MotionRatio * MotionRatio;
-	const float MaxDamping = Ctx.EffectiveSprungMassNormal * DeltaTimeInv; // damper required to flip the sign of velocity in one frame
 	const float ActiveDamping = FMath::Min(MaxDamping, EquivDamperStiffness);
 	float DampingForce = ActiveDamping * (-Ctx.StrutCurrentVelocity);
 
@@ -2042,7 +2059,7 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	FVector ChassisUpVector = Ctx.ChassisWorldTransform.GetRotation().GetUpVector();
 	FVector SwaybarForceVector = Ctx.SwaybarForce * ChassisUpVector;
 
-	Ctx.InternalStrutForce = FVector::DotProduct(StrutForceVector + SwaybarForceVector, Ctx.StrutWorldDirection);
+	Ctx.InternalStrutForce = FVector::DotProduct(StrutForceVector, Ctx.StrutWorldDirection);
 	float FullPreloadAlongSpring = SpringConfig.SpringPreload * MotionRatio;
 	Ctx.InternalStrutForce += FullPreloadAlongSpring;
 
@@ -2081,7 +2098,7 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 
 	Ctx.ForceAlongImpactNormal += ValidPreloadAlongNormal;
 
-	Ctx.ForceAlongImpactNormal = Ctx.bHitGround ? Ctx.ForceAlongImpactNormal : 0.f;
+	Ctx.ForceAlongImpactNormal = Ctx.bWheelOnGround ? Ctx.ForceAlongImpactNormal : 0.f;
 
 	// get effective mass in other directions
 	const float ForceIntoSurface = FMath::Max(Ctx.ForceAlongImpactNormal, 0.f);
@@ -2091,5 +2108,5 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	Ctx.EffectiveSprungMassLat = EffectiveMass.Y * LoadFactor;
 
 	// get wheel load
-	Ctx.WheelLoad = Ctx.bWheelOnGround ? FMath::Max(0.f, Ctx.ForceAlongImpactNormal) : 0.f;
+	Ctx.WheelLoad = FMath::Max(0.f, Ctx.ForceAlongImpactNormal);
 }
