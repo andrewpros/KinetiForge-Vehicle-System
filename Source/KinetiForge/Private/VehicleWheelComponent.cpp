@@ -315,6 +315,7 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 		WheelConfig.Width,
 		WheelConfig.Inertia,
 		SuspensionKinematicsConfig,
+		SuspensionSpringConfig,
 		GetRelativeTransform(),
 		ChassisAsyncWorldTransform,
 		GetWorld(),

@@ -40,6 +40,7 @@ public:
 		const float WheelWidth,
 		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
+		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
 		const UWorld* CurrentWorld,
@@ -208,7 +209,9 @@ private:
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
 		const float WheelInertia,
-		const FVehicleSuspensionKinematicsConfig& Config
+		const FVehicleSuspensionKinematicsConfig& KineConfig,
+		const FVehicleSuspensionSpringConfig& SpringConfig,
+		const FVehicleSuspensionCachedLUTs& LUTs
 	);
 	static void CacheImpactFriction(
 		FVehicleSuspensionSimContext& Ctx

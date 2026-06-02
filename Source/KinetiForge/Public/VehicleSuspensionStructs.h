@@ -291,10 +291,6 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 	float ImpactFriction = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
 	float ForceAlongImpactNormal = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
-	float InternalStrutForce = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
-	float WheelLoad = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
 	float AntiPitchScale = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
@@ -352,9 +348,7 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 
 	float ForceAlongImpactNormal = 0.f;
 
-	float WheelLoad = 0.f;
-
-	float InternalStrutForce = 0.f;
+	float CriticalDamping = 0.f;
 
 	float StaticSprungMass = 0.f;
 
