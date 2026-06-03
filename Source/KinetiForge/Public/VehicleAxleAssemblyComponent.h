@@ -137,10 +137,6 @@ protected:
 		UVehicleWheelComponent* WheelL, 
 		UVehicleWheelComponent* WheelR
 	);
-	void UpdateSwaybarForce(
-		UVehicleWheelComponent* WheelL, 
-		UVehicleWheelComponent* WheelR
-	);
 	void UpdateTCS(
 		UVehicleWheelComponent* WheelL, 
 		UVehicleWheelComponent* WheelR, 
@@ -154,7 +150,7 @@ protected:
 		const float InMacroDeltaTime,
 		const float SteerAngleLeft,
 		const float SteerAngleRight,
-		const float AntiRollBarForce,
+		const float ActiveSwaybarStiffness,
 		UVehicleWheelComponent* WheelL,
 		UVehicleWheelComponent* WheelR
 	);

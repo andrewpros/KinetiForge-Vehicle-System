@@ -69,9 +69,10 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 	const FTransform& AsyncChassisWorldTransform,
 	const UWorld* CurrentWorld,
 	Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
-	float InDeltaTime,
-	float InSteeringAngle, 
-	float InSwaybarForce)
+	const float InDeltaTime,
+	const float InSteeringAngle,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForgeVehicle_Wheel_SuspensionSolver_UpdateSuspension);
 
@@ -81,7 +82,6 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 
 	Ctx.PhysicsDeltaTime = InDeltaTime;
 	Ctx.SteeringAngle = InSteeringAngle;
-	Ctx.SwaybarForce = InSwaybarForce;
 
 	PrepareSimulation(
 		Ctx,
@@ -103,7 +103,9 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 		KineConfig
 	);
 
-	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, KineConfig, SpringConfig,CachedLUTs);
+	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, 
+		KineConfig, SpringConfig, CachedLUTs,
+		ActiveSwaybarStiffness, OtherHubChassisZ);
 
 	switch (KineConfig.SuspensionType)
 	{
@@ -148,7 +150,9 @@ void FVehicleSuspensionSolver::UpdateSuspension(
 		ChassisState,
 		SpringConfig, 
 		KineConfig, 
-		CachedLUTs
+		CachedLUTs,
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ
 	);
 
 	CopyContextToState(Ctx, State);
@@ -164,7 +168,9 @@ void FVehicleSuspensionSolver::StartUpdateSolidAxle(
 	const FTransform& ComponentRelativeTransform,
 	const FTransform& AsyncChassisWorldTransform,
 	const UWorld* CurrentWorld,
-	float InSteeringAngle,
+	const float InSteeringAngle,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
 	FVector& OutHitWorldLocation,
 	FVehicleSuspensionSimContext& Ctx)
 {
@@ -183,35 +189,35 @@ void FVehicleSuspensionSolver::StartUpdateSolidAxle(
 
 	ComputeRayCastLocation(Ctx, KineConfig);
 	SuspensionRayCast(Ctx, CurrentWorld, WheelRadius, WheelWidth * 0.5f, WheelInertia, QueryParams, ResponseParams, KineConfig);
-	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, KineConfig, SpringConfig, CachedLUTs);
+	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, 
+		KineConfig, SpringConfig, CachedLUTs, 
+		ActiveSwaybarStiffness, OtherHubChassisZ);
 
 	const float EquivHitDistance = Ctx.CurrentExtensionRatio * Ctx.RayCastLength;
 	float DistanceToRayCastStart = FMath::Max(0.f, EquivHitDistance);
 	FVector RayDir = (Ctx.RayCastStartWorldLocation - Ctx.RayCastEndWorldLocation).GetSafeNormal();
 	FVector HubOffsetWorld = AsyncChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.HubOffsetFromLowerJointChassis);
 	OutHitWorldLocation = Ctx.RayCastStartWorldLocation - RayDir * DistanceToRayCastStart - HubOffsetWorld;
-	
-	return;
 }
 
 void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 	const float WheelRadius,
+	const float InTrackWidth,
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FVehicleSuspensionSpringConfig& SpringConfig,
 	const FTransform& AsyncChassisWorldTransform,
 	Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
-	float InDeltaTime, 
-	float InSwaybarForce,
-	FVehicleSuspensionSimContext& Ctx,
-	const float InTrackWidth,
+	float InDeltaTime,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
 	const FVector& InThisWheelHitWorldLocation,
 	const FVector& InOtherWheelHitWorldLocation,
-	const FVector3f& TireForce)
+	const FVector3f& TireForce,
+	FVehicleSuspensionSimContext& Ctx)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForgeVehicle_Wheel_SuspensionSolver_UpdateSuspension);
 
 	Ctx.PhysicsDeltaTime = InDeltaTime;
-	Ctx.SwaybarForce = InSwaybarForce;
 
 	ComputeSolidAxle(
 		Ctx,
@@ -252,7 +258,9 @@ void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 		ChassisState,
 		SpringConfig, 
 		KineConfig, 
-		CachedLUTs
+		CachedLUTs,
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ
 	);
 
 	CopyContextToState(Ctx, State);
@@ -720,6 +728,7 @@ void FVehicleSuspensionSolver::CopyContextToState(
 	NewState.SteeringAngle = Context.SteeringAngle;
 	NewState.StrutCurrentLength = Context.StrutCurrentLength;
 	NewState.StrutCurrentVelocity = Context.StrutCurrentVelocity;
+	NewState.VirtualUnsprungMass = Context.VirtualUnsprungMass;
 	NewState.EffectiveSprungMassNormal = Context.EffectiveSprungMassNormal;
 	NewState.EffectiveSprungMassLong = Context.EffectiveSprungMassLong;
 	NewState.EffectiveSprungMassLat = Context.EffectiveSprungMassLat;
@@ -978,7 +987,9 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 	const float WheelInertia,
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FVehicleSuspensionSpringConfig& SpringConfig,
-	const FVehicleSuspensionCachedLUTs& LUTs)
+	const FVehicleSuspensionCachedLUTs& LUTs,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ)
 {
 	const float HitDistanceNoBias = FMath::Max(0.f, Ctx.HitDistance - WheelRadius);
 
@@ -1010,6 +1021,8 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		float ReboundDamp = SpringConfig.ReboundDamping * MotionRatio * MotionRatio;
 		float CompDamp = SpringConfig.CompressionDamping * MotionRatio * MotionRatio;
 
+		const float ThisWheelChassisZ = Ctx.HubChassisTransform.GetLocation().Z;
+
 		if (SpringConfig.bUseDampingRatio)
 		{
 			float CriticalDamping = GetCriticalDamping(SpringConfig.SpringStiffness, Ctx.StaticSprungMass);
@@ -1032,7 +1045,21 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 			float EquivDamp = (CurrentVelocity > 0.f) ? ReboundDamp : CompDamp;
 			float DampingForce = EquivDamp * (-CurrentVelocity);
 
-			CurrentForce = SpringForce + DampingForce + GravityForce + Preload;
+			// 1. 根据 1D 减震器长度变化，推算当前子步车轮在底盘空间的 Z 坐标。
+			// 假设底盘 Z 轴向上，减震器伸长会导致轮子 Z 坐标下降。
+			float LengthDelta = CurrentLength - StrutLastLength;
+			float StrutZProj = FMath::Abs(Ctx.StrutChassisDirection.Z);
+			float SimulatedChassisZ = ThisWheelChassisZ - LengthDelta * StrutZProj;
+
+			// 2. 在 Z 轴空间计算虚拟弹簧力 (比较两侧高度)
+			// 如果当前轮子比另一侧低 (SimulatedChassisZ 更小)，ZDifference 为正，产生向上的拉力
+			float ZDifference = SimulatedChassisZ - OtherHubChassisZ;
+			float SwaybarForceZ = ActiveSwaybarStiffness * ZDifference;
+
+			// 3. 将 Z 轴的力投影回 1D 减震器轴向，得到作用于簧下质量的真实防倾力
+			float SwaybarForceOnUnsprung = SwaybarForceZ * StrutZProj;
+
+			CurrentForce = SpringForce + DampingForce + GravityForce + Preload + SwaybarForceOnUnsprung;
 			float UnsprungAccel_CM = (CurrentForce * VirtualUnsprungMassInv) * 100.f; // to cm/s^2
 
 			CurrentVelocity += UnsprungAccel_CM * SubDt;
@@ -1232,11 +1259,12 @@ float FVehicleSuspensionSolver::SuspensionMultiSphereTrace(
 		{
 			// first test with a bigger box
 			FVector HalfSize = FVector(WheelRadius, HalfWheelWidth, WheelRadius);
+			FHitResult BoxTraceResult;
 			bool bShouldMultiSphereTrace = FPhysicsInterface::GeomSweepSingle(
 				World,
 				FCollisionShape::MakeBox(HalfSize),
 				Ctx.RayCastWorldTransform.GetRotation(),
-				Ctx.HitResult,
+				BoxTraceResult,
 				Ctx.RayCastStartWorldLocation,
 				Ctx.RayCastEndWorldLocation,
 				Config.TraceChannel,
@@ -1261,10 +1289,18 @@ float FVehicleSuspensionSolver::SuspensionMultiSphereTrace(
 					FCollisionObjectQueryParams::DefaultObjectQueryParam
 				);
 
-				if (Ctx.bHitGround)
+				for (FHitResult HitResult : MultiHitResults)
 				{
-					int32 ArrayLength = MultiHitResults.Num();
-					Ctx.HitResult = MultiHitResults[ArrayLength - 1];
+					if (HitResult.Time > BoxTraceResult.Time)
+					{
+						Ctx.HitResult = HitResult;
+						break;
+					}
+					else if (HitResult.Time == BoxTraceResult.Time)
+					{
+						Ctx.HitResult = BoxTraceResult;
+						break;
+					}
 				}
 			}
 		}
@@ -2055,7 +2091,9 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	const FVehicleChassisSimState& ChassisState,
 	const FVehicleSuspensionSpringConfig& SpringConfig,
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
-	const FVehicleSuspensionCachedLUTs& LUTs)
+	const FVehicleSuspensionCachedLUTs& LUTs,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ)
 {
 	Ctx.StrutWorldDirection = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.StrutChassisDirection);
 	float DeltaTimeInv = UVehicleUtilities::SafeDivide(1.f, Ctx.PhysicsDeltaTime);
@@ -2101,6 +2139,7 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	FVector StrutForceVector = Ctx.StrutWorldDirection * Ctx.StrutForce;
 
 	// sway bar
+	Ctx.SwaybarForce = (Ctx.HubChassisTransform.GetLocation().Z - OtherHubChassisZ) * ActiveSwaybarStiffness;
 	FVector ChassisUpVector = Ctx.ChassisWorldTransform.GetRotation().GetUpVector();
 	FVector SwaybarForceVector = Ctx.SwaybarForce * ChassisUpVector;
 

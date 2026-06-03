@@ -31,9 +31,10 @@ public:
 		const FTransform& AsyncChassisWorldTransform,
 		const UWorld* CurrentWorld,
 		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
-		float InDeltaTime,
-		float InSteeringAngle,
-		float InSwaybarForce
+		const float InDeltaTime,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 	void StartUpdateSolidAxle(
 		const float WheelRadius,
@@ -44,23 +45,26 @@ public:
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
 		const UWorld* CurrentWorld,
-		float InSteeringAngle,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
 	void FinalizeUpdateSolidAxle(
 		const float WheelRadius,
+		const float InTrackWidth,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& AsyncChassisWorldTransform,
 		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
 		float InDeltaTime,
-		float InSwaybarForce,
-		FVehicleSuspensionSimContext& Ctx,
-		const float InTrackWidth,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		const FVector& InThisWheelHitWorldLocation,
 		const FVector& InOtherWheelHitWorldLocation,
-		const FVector3f& TireForce
+		const FVector3f& TireForce,
+		FVehicleSuspensionSimContext& Ctx
 	);
 	static void RoughlyInitializeState(
 		const FTransform& ComponentRelativeTransform,
@@ -211,7 +215,9 @@ private:
 		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
-		const FVehicleSuspensionCachedLUTs& LUTs
+		const FVehicleSuspensionCachedLUTs& LUTs,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 	static void CacheImpactFriction(
 		FVehicleSuspensionSimContext& Ctx
@@ -377,6 +383,8 @@ private:
 		const FVehicleChassisSimState& ChassisState,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
-		const FVehicleSuspensionCachedLUTs& LUTs
+		const FVehicleSuspensionCachedLUTs& LUTs,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 };

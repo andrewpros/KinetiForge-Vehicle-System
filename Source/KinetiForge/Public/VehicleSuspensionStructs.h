@@ -279,8 +279,10 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 	float StrutCurrentLength = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
 	float StrutCurrentVelocity = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float StaticSprungMass = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
+	float VirtualUnsprungMass = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float EffectiveSprungMassNormal = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")

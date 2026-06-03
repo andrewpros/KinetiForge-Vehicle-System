@@ -139,16 +139,20 @@ public:
 	void PreStepIndependentSuspension(
 		const float InMacroDeltaTime,
 		const float InSteeringAngle,
-		const float InSwaybarForce);
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ);
 	void StartPreStepSolidAxleSuspension(
 		FVehicleSuspensionSimContext& Ctx,
 		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		FVector& OutHitWorldLocation);
 	void FinalizePreStepSolidAxleSuspension(
 		FVehicleSuspensionSimContext& Ctx,
 		const float InMacroDeltaTime,
-		const float InSwaybarForce,
 		const float InTrackWidth,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		const FVector& InThisWheelHitWorldLocation,
 		const FVector& InOtherWheelHitWorldLocation);
 
@@ -230,6 +234,12 @@ public:
 	void SetSprungMass(float NewSprungMass);
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
+	float GetSprungMass() { return Suspension.State.StaticSprungMass; }
+
+	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
+	float GetUnsprungMass() { return Suspension.State.VirtualUnsprungMass; }
+
+	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	FVector3f GetTopMountChassisLocation();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
@@ -303,13 +313,14 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void UpdatePhysics(
-		float InPhysicsDeltaTime,
-		float InDriveTorque,
-		float InBrakeTorque, 
-		float InHandbrakeTorque,
-		float InSteeringAngle, 
-		float InSwaybarForce, 
-		float InReflectedInertia);
+		const float InPhysicsDeltaTime,
+		const float InDriveTorque,
+		const float InBrakeTorque, 
+		const float InHandbrakeTorque,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
+		const float InReflectedInertia);
 
 	/**
 	* This function checks if the wheel has been moved.
@@ -330,7 +341,9 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void StartUpdateSolidAxlePhysics(
-		float InSteeringAngle,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
@@ -343,16 +356,17 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void FinalizeUpdateSolidAxlePhysics(
-		float InPhysicsDeltaTime, 
-		float InDriveTorque,
-		float InBrakeTorque,
-		float InHandbrakeTorque,
-		float InSwaybarForce,
-		float InReflectedInertia,
-		FVehicleSuspensionSimContext& Ctx,
+		const float InPhysicsDeltaTime, 
+		const float InDriveTorque,
+		const float InBrakeTorque,
+		const float InHandbrakeTorque,
 		const float InTrackWidth,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
+		const float InReflectedInertia,
 		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation);
+		const FVector& InOtherWheelHitWorldLocation,
+		FVehicleSuspensionSimContext& Ctx);
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void ApplySuspensionStateDirect(float InExtensionRatio = 1.f, float InSteeringAngle = 0.f);
