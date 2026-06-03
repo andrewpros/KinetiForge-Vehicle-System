@@ -49,7 +49,7 @@ void FVehicleWheelSolver::PreStep(
 
 	UpdateDynamicFrictionMultiplier(LocalState, Context, TireConfig, SuspensionState.ImpactFriction);
 
-	Context.ForceIntoSurface = FMath::Max(0.f, SuspensionState.WheelLoad);
+	Context.ForceIntoSurface = FMath::Max(0.f, SuspensionState.ForceAlongImpactNormal);
 
 	Context.GravityComp2D = CalculateGravityCompensationOnSlope(
 		LocalState, Context,

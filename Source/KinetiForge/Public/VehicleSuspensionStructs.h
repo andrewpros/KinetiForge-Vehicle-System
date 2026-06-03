@@ -135,7 +135,7 @@ struct KINETIFORGE_API FVehicleSuspensionKinematicsConfig
 	* Set to 0 or <0 to disable unsprung mass calculation. (Better handling and more stable, but less realistic, if disabled)
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float SuspensionAndBrakeMass = 0.f;
+	float SuspensionAndBrakeMass = 20.f;
 
 	/**
 	* X: SuspensionCompressionRatio; Y:CamberGain; Only enabled when the suspension type is double-wishbone
@@ -279,8 +279,10 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 	float StrutCurrentLength = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
 	float StrutCurrentVelocity = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float StaticSprungMass = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
+	float VirtualUnsprungMass = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float EffectiveSprungMassNormal = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
@@ -291,10 +293,6 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 	float ImpactFriction = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
 	float ForceAlongImpactNormal = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
-	float InternalStrutForce = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
-	float WheelLoad = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
 	float AntiPitchScale = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
@@ -352,9 +350,7 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 
 	float ForceAlongImpactNormal = 0.f;
 
-	float WheelLoad = 0.f;
-
-	float InternalStrutForce = 0.f;
+	float CriticalDamping = 0.f;
 
 	float StaticSprungMass = 0.f;
 
