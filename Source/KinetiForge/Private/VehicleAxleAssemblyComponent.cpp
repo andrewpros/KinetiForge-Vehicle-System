@@ -246,14 +246,14 @@ void UVehicleAxleAssemblyComponent::PreStepSolidAxleSuspension(
 	UVehicleWheelComponent* WheelR)
 {
 	FVector LeftHitLocation, RightHitLocation;
+	const float HubZ_R = WheelR->GetHubChassisLocation().Z;
+	const float HubZ_L = WheelL->GetHubChassisLocation().Z;
 
 	FVehicleSuspensionSimContext LeftCtx;
-	const float HubZ_R = WheelR->GetHubChassisLocation().Z;
 	WheelL->StartPreStepSolidAxleSuspension(LeftCtx, SteerAngleLeft, 
 		ActiveSwaybarStiffness, HubZ_R, LeftHitLocation);
 
 	FVehicleSuspensionSimContext RightCtx;
-	const float HubZ_L = WheelL->GetHubChassisLocation().Z;
 	WheelR->StartPreStepSolidAxleSuspension(RightCtx, SteerAngleRight,
 		ActiveSwaybarStiffness, HubZ_L, RightHitLocation);
 
@@ -348,21 +348,25 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 
 	if (State.NumOfWheels == 2)
 	{
+		float HubZ_R = 0.f;
+		float HubZ_L = 0.f;
 		switch (SuspensionType)
 		{
 		default:
 		case EVehicleAxleSuspensionType::Independent:
+			HubZ_R = WheelR->GetHubChassisLocation().Z;
+			HubZ_L = WheelL->GetHubChassisLocation().Z;
 			WheelL->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.LeftWheelSteeringAngle,
 				AxleConfig.SwaybarStiffness,
-				WheelR->GetHubChassisLocation().Z
+				HubZ_R
 			);
 			WheelR->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.RightWheelSteeringAngle,
 				AxleConfig.SwaybarStiffness,
-				WheelL->GetHubChassisLocation().Z
+				HubZ_L
 			);
 			break;
 		case EVehicleAxleSuspensionType::Solid:
