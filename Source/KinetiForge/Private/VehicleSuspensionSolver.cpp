@@ -1039,38 +1039,43 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 			float CurrentSubstepTime = (i + 1) * SubDt;
 			float InterpolatedGroundLimit = StrutLastLength + GroundRelativeVelocity * CurrentSubstepTime;
 
+			// 1. 计算所有非阻尼力（显式部分）
 			float SpringCompression = KineConfig.Stroke - CurrentLength;
 			float SpringForce = EquivSpring * SpringCompression;
 
-			float EquivDamp = (CurrentVelocity > 0.f) ? ReboundDamp : CompDamp;
-			float DampingForce = EquivDamp * (-CurrentVelocity);
-
-			// 1. 根据 1D 减震器长度变化，推算当前子步车轮在底盘空间的 Z 坐标。
-			// 假设底盘 Z 轴向上，减震器伸长会导致轮子 Z 坐标下降。
+			// 计算防倾杆虚拟弹簧力
 			float LengthDelta = CurrentLength - StrutLastLength;
 			float StrutZProj = FMath::Abs(Ctx.StrutChassisDirection.Z);
 			float SimulatedChassisZ = ThisWheelChassisZ - LengthDelta * StrutZProj;
-
-			// 2. 在 Z 轴空间计算虚拟弹簧力 (比较两侧高度)
-			// 如果当前轮子比另一侧低 (SimulatedChassisZ 更小)，ZDifference 为正，产生向上的拉力
 			float ZDifference = SimulatedChassisZ - OtherHubChassisZ;
-			float SwaybarForceZ = ActiveSwaybarStiffness * ZDifference;
+			float SwaybarForceOnUnsprung = ActiveSwaybarStiffness * ZDifference * StrutZProj;
 
-			// 3. 将 Z 轴的力投影回 1D 减震器轴向，得到作用于簧下质量的真实防倾力
-			float SwaybarForceOnUnsprung = SwaybarForceZ * StrutZProj;
+			// 静态合力
+			float StaticForce = SpringForce + GravityForce + Preload + SwaybarForceOnUnsprung;
 
-			CurrentForce = SpringForce + DampingForce + GravityForce + Preload + SwaybarForceOnUnsprung;
-			float UnsprungAccel_CM = (CurrentForce * VirtualUnsprungMassInv) * 100.f; // to cm/s^2
+			// 2. 利用静态力预测速度
+			float PredictedVelocity = CurrentVelocity + (StaticForce / Ctx.VirtualUnsprungMass) * 100.f * SubDt;
 
-			CurrentVelocity += UnsprungAccel_CM * SubDt;
+			// 3. 隐式阻尼求解（核心）
+			// 根据预测速度的方向来决定使用压缩还是回弹阻尼
+			float EquivDamp = (PredictedVelocity > 0.f) ? ReboundDamp : CompDamp;
+
+			// 隐式分母：1 + (C * dt / m)
+			float DampingDenominator = 1.f + (EquivDamp * SubDt / Ctx.VirtualUnsprungMass);
+
+			// 更新最终速度
+			CurrentVelocity = PredictedVelocity / DampingDenominator;
+
+			// 4. 更新位置
 			CurrentLength += CurrentVelocity * SubDt;
 
+			// 运动学约束
 			if (CurrentLength > InterpolatedGroundLimit)
 			{
 				CurrentLength = InterpolatedGroundLimit;
 				CurrentVelocity = GroundRelativeVelocity;
 			}
-			else if (CurrentLength <= 0.f) // Bump Stop
+			else if (CurrentLength <= 0.f)
 			{
 				CurrentLength = 0.f;
 				CurrentVelocity = 0.f;
