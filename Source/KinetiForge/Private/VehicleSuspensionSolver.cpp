@@ -998,7 +998,9 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		// integrate unsprung mass position
 		const float EstimatedWheelMass = (2.0f * WheelInertia) / (WheelRadius * WheelRadius * 0.0001f); // cm to m
 		Ctx.VirtualUnsprungMass = EstimatedWheelMass + KineConfig.SuspensionAndBrakeMass;
-		const float GravityForce = Ctx.VirtualUnsprungMass * FMath::Abs(Ctx.WorldGravityZ) * FMath::Abs(Ctx.StrutChassisDirection.Z);
+		const float VirtualUnsprungMassInv = 1.f / Ctx.VirtualUnsprungMass;
+		Ctx.StrutWorldDirection = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.StrutChassisDirection);
+		const float GravityForce = Ctx.VirtualUnsprungMass * FMath::Abs(Ctx.WorldGravityZ) * FMath::Abs(Ctx.StrutWorldDirection.Z);
 
 		const float CompressionRatio = 1.f - Ctx.CurrentExtensionRatio;
 		float MotionRatio = LUTs.MotionRatioCurve.FastEval(CompressionRatio).Value;
@@ -1007,7 +1009,6 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		float EquivSpring = SpringConfig.SpringStiffness * MotionRatio * MotionRatio;
 		float ReboundDamp = SpringConfig.ReboundDamping * MotionRatio * MotionRatio;
 		float CompDamp = SpringConfig.CompressionDamping * MotionRatio * MotionRatio;
-		float MaxUnsprungDamping = Ctx.VirtualUnsprungMass / SubDt;
 
 		if (SpringConfig.bUseDampingRatio)
 		{
@@ -1029,24 +1030,23 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 			float SpringForce = EquivSpring * SpringCompression;
 
 			float EquivDamp = (CurrentVelocity > 0.f) ? ReboundDamp : CompDamp;
-			EquivDamp = FMath::Min(EquivDamp, MaxUnsprungDamping);
 			float DampingForce = EquivDamp * (-CurrentVelocity);
 
 			CurrentForce = SpringForce + DampingForce + GravityForce + Preload;
-			float UnsprungAccel_CM = (CurrentForce / Ctx.VirtualUnsprungMass) * 100.f; // ×ªÎª cm/s^2
+			float UnsprungAccel_CM = (CurrentForce * VirtualUnsprungMassInv) * 100.f; // to cm/s^2
 
 			CurrentVelocity += UnsprungAccel_CM * SubDt;
 			CurrentLength += CurrentVelocity * SubDt;
 
-			if (CurrentLength > MaxCurrentLength)
+			if (CurrentLength > InterpolatedGroundLimit)
 			{
-				CurrentLength = MaxCurrentLength;
+				CurrentLength = InterpolatedGroundLimit;
 				CurrentVelocity = GroundRelativeVelocity;
 			}
-			else if (CurrentLength <= 0.f) // Ðü¹Ò±»Ñ¹ËÀ (Bump Stop)
+			else if (CurrentLength <= 0.f) // Bump Stop
 			{
 				CurrentLength = 0.f;
-				CurrentVelocity = FMath::Min(CurrentVelocity, 0.f);
+				CurrentVelocity = 0.f;
 			}
 		}
 
@@ -1392,7 +1392,7 @@ void FVehicleSuspensionSolver::ComputeStraightSuspension(
 	HubOffset.Y *= Ctx.WheelSideSign;
 	Ctx.HubOffsetFromLowerJointChassis = HubChassisRot.RotateVector(HubOffset);
 
-	Ctx.LowerBallJointChassisLocation = Ctx.TopMountChassisLocation - Ctx.StrutChassisDirection * (Config.MinStrutLength + FMath::Max(0.f, Ctx.StrutCurrentLength - WheelRadius));
+	Ctx.LowerBallJointChassisLocation = Ctx.TopMountChassisLocation - Ctx.StrutChassisDirection * (Config.MinStrutLength + Ctx.StrutCurrentLength);
 	Ctx.HubChassisTransform.SetLocation(Ctx.LowerBallJointChassisLocation + Ctx.HubOffsetFromLowerJointChassis);
 
 	FVector3f WheelChassisRightVec = Ctx.HubChassisTransform.GetRotation().GetRightVector();
@@ -2104,6 +2104,8 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	FVector ChassisUpVector = Ctx.ChassisWorldTransform.GetRotation().GetUpVector();
 	FVector SwaybarForceVector = Ctx.SwaybarForce * ChassisUpVector;
 
+	Ctx.ForceAlongImpactNormal += FVector::DotProduct(StrutForceVector + SwaybarForceVector, Ctx.HitResult.Normal);
+
 	// some limits of constraint
 	const float ConstraintScale = 0.99f;
 	float VelocityAlongNormal = FVector::DotProduct(Ctx.HitResult.Normal, FVector(Ctx.ImpactWorldVelocity));
@@ -2125,10 +2127,8 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 		SpringForce = (WheelRadius - DistanceToSurface) * ActiveSpring;
 		DampingForce = -VelocityAlongNormal * ActiveDamping;
 		ForceToHoldCar += SpringForce + DampingForce;
-		StrutForceVector += ForceToHoldCar * Ctx.HitResult.Normal;
+		Ctx.ForceAlongImpactNormal += ForceToHoldCar;
 	}
-
-	Ctx.ForceAlongImpactNormal += FVector::DotProduct(StrutForceVector + SwaybarForceVector, Ctx.HitResult.Normal);
 
 	// spring preload
 	float FullPreloadAlongSpring = SpringConfig.SpringPreload * MotionRatio;
