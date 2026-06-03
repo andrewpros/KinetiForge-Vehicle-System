@@ -423,6 +423,8 @@ FVehicleSuspensionSimState FVehicleSuspensionSolver::FinalizeSolveSolidAxleAtExt
 		InOtherWheelHitWorldLocation
 	);
 
+	Ctx.StrutCurrentVelocity = 0.f;
+
 	FVehicleSuspensionSimState NewState;
 	CopyContextToState(Ctx, NewState);
 	return NewState;
@@ -877,11 +879,6 @@ void FVehicleSuspensionSolver::ComputeStraightRayCastLocation(
 	FVehicleSuspensionSimContext& Ctx, 
 	const FVehicleSuspensionKinematicsConfig& Config)
 {
-	/*
-	* 
-	* 这里还没完工
-	* 
-	*/
 	FVector3f RayDirChassis = Ctx.WheelCompToChassisTransform.GetRotation().GetUpVector();
 	Ctx.StrutChassisDirection = Ctx.WheelCompToChassisTransform.GetRotation().GetUpVector();
 	Ctx.RayCastLength = Config.Stroke;
@@ -996,7 +993,9 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 	const float MaxExtension = FMath::Clamp(HitDistanceNoBias / Ctx.RayCastLength, 0.f, 1.f);
 	const float MaxCurrentLength = MaxExtension * KineConfig.Stroke;
 	const float StrutLastLength = Ctx.StrutCurrentLength;
-	const float GroundRelativeVelocity = (MaxCurrentLength - StrutLastLength) / Ctx.PhysicsDeltaTime;
+	Ctx.StrutLastLength = StrutLastLength;
+	const float MacroDtInv = UVehicleUtilities::SafeDivide(1.f, Ctx.PhysicsDeltaTime);
+	const float GroundRelativeVelocity = (MaxCurrentLength - StrutLastLength) * MacroDtInv;
 
 	bool bSimulateUnsprungMass = KineConfig.SuspensionAndBrakeMass > SMALL_NUMBER;
 	if (bSimulateUnsprungMass)
@@ -1054,14 +1053,14 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 			float StaticForce = SpringForce + GravityForce + Preload + SwaybarForceOnUnsprung;
 
 			// 2. 利用静态力预测速度
-			float PredictedVelocity = CurrentVelocity + (StaticForce / Ctx.VirtualUnsprungMass) * 100.f * SubDt;
+			float PredictedVelocity = CurrentVelocity + (StaticForce * VirtualUnsprungMassInv) * 100.f * SubDt;
 
 			// 3. 隐式阻尼求解（核心）
 			// 根据预测速度的方向来决定使用压缩还是回弹阻尼
 			float EquivDamp = (PredictedVelocity > 0.f) ? ReboundDamp : CompDamp;
 
 			// 隐式分母：1 + (C * dt / m)
-			float DampingDenominator = 1.f + (EquivDamp * SubDt / Ctx.VirtualUnsprungMass);
+			float DampingDenominator = 1.f + (EquivDamp * SubDt * VirtualUnsprungMassInv);
 
 			// 更新最终速度
 			CurrentVelocity = PredictedVelocity / DampingDenominator;
@@ -1085,7 +1084,7 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		Ctx.bWheelOnGround = CurrentLength >= MaxCurrentLength && Ctx.bHitGround;
 
 		Ctx.StrutCurrentLength = CurrentLength;
-		Ctx.StrutCurrentVelocity = CurrentVelocity;
+		Ctx.StrutCurrentVelocity = (CurrentLength - StrutLastLength) * MacroDtInv;
 		Ctx.CurrentExtensionRatio = CurrentLength / KineConfig.Stroke;
 	}
 	else
@@ -1656,8 +1655,11 @@ void FVehicleSuspensionSolver::ComputeSolidAxle(
 	// 10. 计算减震器方向（用于算弹簧力）
 	Ctx.StrutChassisDirection = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).GetSafeNormal();
 
-	// 11. (可选) 反推一个本地空间的点用于下一帧的初始参考
-	FVector3f KnuckleLocalLocation = Ctx.WheelCompToChassisTransform.InverseTransformPositionNoScale(Ctx.LowerBallJointChassisLocation);
+	// 11. 反推减震器长度
+	float TrueStrutLength = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).Size() - Config.MinStrutLength;
+	Ctx.StrutCurrentLength = FMath::Clamp(TrueStrutLength, 0.f, Config.Stroke);
+	Ctx.CurrentExtensionRatio = Ctx.StrutCurrentLength / Config.Stroke;
+	Ctx.StrutCurrentVelocity = UVehicleUtilities::SafeDivide(Ctx.StrutCurrentLength - Ctx.StrutLastLength, Ctx.PhysicsDeltaTime);
 }
 
 bool FVehicleSuspensionSolver::Solve2DLineIntersection(
