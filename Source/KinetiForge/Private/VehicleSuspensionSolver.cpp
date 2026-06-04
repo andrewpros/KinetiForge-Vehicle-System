@@ -1084,7 +1084,7 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		Ctx.bWheelOnGround = CurrentLength >= MaxCurrentLength && Ctx.bHitGround;
 
 		Ctx.StrutCurrentLength = CurrentLength;
-		Ctx.StrutCurrentVelocity = CurrentVelocity;
+		Ctx.StrutCurrentVelocity = (CurrentLength - StrutLastLength) * MacroDtInv;
 		Ctx.CurrentExtensionRatio = CurrentLength / KineConfig.Stroke;
 	}
 	else
