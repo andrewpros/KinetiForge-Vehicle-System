@@ -336,6 +336,8 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 
 	float StrutCurrentLength = 0.f;
 
+	float StrutLastLength = 0.f;
+
 	float StrutCurrentVelocity = 0.f;
 
 	float CurrentExtensionRatio = 0.f;
