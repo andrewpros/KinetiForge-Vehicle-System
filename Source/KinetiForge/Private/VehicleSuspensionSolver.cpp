@@ -1084,7 +1084,7 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		Ctx.bWheelOnGround = CurrentLength >= MaxCurrentLength && Ctx.bHitGround;
 
 		Ctx.StrutCurrentLength = CurrentLength;
-		Ctx.StrutCurrentVelocity = (CurrentLength - StrutLastLength) * MacroDtInv;
+		Ctx.StrutCurrentVelocity = CurrentVelocity;
 		Ctx.CurrentExtensionRatio = CurrentLength / KineConfig.Stroke;
 	}
 	else
@@ -1621,7 +1621,8 @@ void FVehicleSuspensionSolver::ComputeSolidAxle(
 	FVector3f AxleDirectionChassis = (FVector3f)Ctx.ChassisWorldTransform.InverseTransformVectorNoScale(AxleDirectionWorld);
 
 	// 1. 获取下球头（车桥末端的主销点）的底盘局部坐标
-	Ctx.LowerBallJointChassisLocation = AxleCenterChassis + AxleDirectionChassis * TrackWidth * 0.5f * Ctx.WheelSideSign;
+	const float BallJointHalfWidth = TrackWidth * 0.5f - Config.HubOffsetFromLowerJoint.Y;
+	Ctx.LowerBallJointChassisLocation = AxleCenterChassis + AxleDirectionChassis * BallJointHalfWidth * Ctx.WheelSideSign;
 
 	// 3. 计算车桥的侧倾旋转 (Roll)
 	FVector3f DefaultRight = FVector3f(0.f, 1.f, 0.f);
@@ -1656,10 +1657,9 @@ void FVehicleSuspensionSolver::ComputeSolidAxle(
 	Ctx.StrutChassisDirection = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).GetSafeNormal();
 
 	// 11. 反推减震器长度
-	float TrueStrutLength = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).Size() - Config.MinStrutLength;
-	Ctx.StrutCurrentLength = FMath::Clamp(TrueStrutLength, 0.f, Config.Stroke);
+	float Absolute3DDistance = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).Size();
+	Ctx.StrutCurrentLength = FMath::Clamp(Absolute3DDistance - Config.MinStrutLength, 0.f, Config.Stroke);
 	Ctx.CurrentExtensionRatio = Ctx.StrutCurrentLength / Config.Stroke;
-	Ctx.StrutCurrentVelocity = UVehicleUtilities::SafeDivide(Ctx.StrutCurrentLength - Ctx.StrutLastLength, Ctx.PhysicsDeltaTime);
 }
 
 bool FVehicleSuspensionSolver::Solve2DLineIntersection(
