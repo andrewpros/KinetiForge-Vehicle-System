@@ -69,7 +69,7 @@ private:
 		const FVehicleWheelSimContext& Context,
 		const FVehicleABSConfig& ABSConfig,
 		const float TargetBrakeTorque,
-		const bool bHitGround);
+		const bool bOnGround);
 	static void UpdateDynamicFrictionMultiplier(
 		FVehicleWheelSimState& LocalState,
 		const FVehicleWheelSimContext& Context,
@@ -87,16 +87,16 @@ private:
 		const float SlipVelocityTolerance = 0.1f);
 	static void UpdateSlipAngle(
 		FVehicleWheelSimState& LocalState,
-		const bool bHitGround);
+		const bool bOnGround);
 	static void UpdateSlipRatio(
 		FVehicleWheelSimState& LocalState,
 		const FVehicleWheelSimContext& Context,
-		const bool bHitGround);
+		const bool bOnGround);
 	/**Returns transient slip ratio and slip angle (normalized)*/
 	static FVector2f UpdateTransientSlip(
 		FVehicleWheelSimState& LocalState,
 		const FVehicleWheelSimContext& Context,
-		const bool bHitGround,
+		const bool bOnGround,
 		const FVector2f& RelaxationLength);
 	static float CalculateConstraintLongForce(
 		FVehicleWheelSimState& LocalState,
@@ -110,7 +110,7 @@ private:
 		FVehicleWheelSimState& LocalState,
 		FVehicleWheelSimContext& Context,
 		const float PositiveForceIntoSurface,
-		const bool bHitGround,
+		const bool bOnGround,
 		const FVector3f& LongForceDir,
 		const FVector3f& LatForceDir);
 	static float CalculateScaledWheelLoad(
@@ -124,7 +124,7 @@ private:
 		const float EffectiveSprungMassLong,
 		const float EffectiveSprungMassLat,
 		const float PositiveForceIntoSurface,
-		const bool bHitGround,
+		const bool bOnGround,
 		const FVector3f& LongForceDirUnNorm,
 		const FVector3f& LatForceDirUnNorm,
 		const FVector3f& LongForceDir,

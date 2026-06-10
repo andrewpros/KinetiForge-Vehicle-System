@@ -192,15 +192,6 @@ void UVehicleAxleAssemblyComponent::UpdateLinearVelocity(
 	State.LocalLinearVelocity = ChassisRot.UnrotateVector(State.WorldLinearVelocity);
 }
 
-void UVehicleAxleAssemblyComponent::UpdateSwaybarForce(
-	UVehicleWheelComponent* WheelL, 
-	UVehicleWheelComponent* WheelR)
-{
-	float HeightL = WheelL->GetHubChassisLocation().Z;
-	float HeightR = WheelR->GetHubChassisLocation().Z;
-	State.SwaybarForce = AxleConfig.SwaybarStiffness * 0.5f * (HeightL - HeightR);
-}
-
 void UVehicleAxleAssemblyComponent::UpdateTCS(
 	UVehicleWheelComponent* WheelL, 
 	UVehicleWheelComponent* WheelR, 
@@ -250,36 +241,52 @@ void UVehicleAxleAssemblyComponent::PreStepSolidAxleSuspension(
 	const float InMacroDeltaTime,
 	const float SteerAngleLeft,
 	const float SteerAngleRight,
-	const float AntiRollBarForce,
-	UVehicleWheelComponent* WheelL, 
+	const float ActiveSwaybarStiffness,
+	UVehicleWheelComponent* WheelL,
 	UVehicleWheelComponent* WheelR)
 {
-	FVector LeftHitLocation, RightHitLocation;
+	FVehicleSuspensionSimContext Ctx_L;
+	FVehicleSuspensionSimContext Ctx_R;
 
-	FVehicleSuspensionSimContext LeftCtx;
-	WheelL->StartPreStepSolidAxleSuspension(LeftCtx, SteerAngleLeft, LeftHitLocation);
+	float HubZ_R = WheelR->GetHubChassisLocation().Z;
+	float HubZ_L = WheelL->GetHubChassisLocation().Z;
 
-	FVehicleSuspensionSimContext RightCtx;
-	WheelR->StartPreStepSolidAxleSuspension(RightCtx, SteerAngleRight, RightHitLocation);
+	WheelL->StartPreStepSolidAxleSuspension(Ctx_L, SteerAngleLeft, ActiveSwaybarStiffness, HubZ_R);
+	WheelR->StartPreStepSolidAxleSuspension(Ctx_R, SteerAngleRight, ActiveSwaybarStiffness, HubZ_L);
 
 	float TrackWidth = GetTrackWidth();
+	float AxleHalfWidth = (
+		TrackWidth
+		- WheelL->GetSuspensionKinematicsConfig().HubOffsetFromLowerJoint.Y
+		- WheelR->GetSuspensionKinematicsConfig().HubOffsetFromLowerJoint.Y
+		) * 0.5f;
+
+	FVector3f LeftTopMount = WheelL->GetTopMountChassisLocation();
+	FVector3f RightTopMount = WheelR->GetTopMountChassisLocation();
+
+	FVector3f AxleCenter = FVector3f::ZeroVector;
+	FQuat4f AxleRotation = FQuat4f::Identity;
+
+	float StrutRealLength_L = Ctx_L.StrutCurrentLength + WheelL->GetSuspensionKinematicsConfig().MinStrutLength;
+	float StrutRealLength_R = Ctx_R.StrutCurrentLength + WheelR->GetSuspensionKinematicsConfig().MinStrutLength;
+
+	FVehicleSuspensionSolver::SolveSolidAxlePosture(
+		LeftTopMount, RightTopMount,
+		StrutRealLength_L, StrutRealLength_R,
+		AxleHalfWidth,
+		AxleCenter, AxleRotation
+	);
 
 	WheelL->FinalizePreStepSolidAxleSuspension(
-		LeftCtx,
-		InMacroDeltaTime,
-		AntiRollBarForce,
-		TrackWidth,
-		LeftHitLocation,
-		RightHitLocation
+		Ctx_L, InMacroDeltaTime,
+		ActiveSwaybarStiffness, HubZ_R,
+		AxleHalfWidth, AxleCenter, AxleRotation
 	);
 
 	WheelR->FinalizePreStepSolidAxleSuspension(
-		RightCtx,
-		InMacroDeltaTime,
-		-AntiRollBarForce,
-		TrackWidth,
-		RightHitLocation,
-		LeftHitLocation
+		Ctx_R, InMacroDeltaTime,
+		ActiveSwaybarStiffness, HubZ_L,
+		AxleHalfWidth, AxleCenter, AxleRotation
 	);
 }
 
@@ -351,21 +358,25 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 
 	if (State.NumOfWheels == 2)
 	{
-		UpdateSwaybarForce(WheelL, WheelR);
-
+		float HubZ_R = 0.f;
+		float HubZ_L = 0.f;
 		switch (SuspensionType)
 		{
 		default:
 		case EVehicleAxleSuspensionType::Independent:
+			HubZ_R = WheelR->GetHubChassisLocation().Z;
+			HubZ_L = WheelL->GetHubChassisLocation().Z;
 			WheelL->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.LeftWheelSteeringAngle,
-				State.SwaybarForce
+				AxleConfig.SwaybarStiffness,
+				HubZ_R
 			);
 			WheelR->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.RightWheelSteeringAngle,
-				-State.SwaybarForce
+				AxleConfig.SwaybarStiffness,
+				HubZ_L
 			);
 			break;
 		case EVehicleAxleSuspensionType::Solid:
@@ -373,13 +384,13 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 				InMacroDeltaTime,
 				State.LeftWheelSteeringAngle,
 				State.RightWheelSteeringAngle,
-				State.SwaybarForce,
+				AxleConfig.SwaybarStiffness,
 				WheelL,
 				WheelR
 			);
 			break;
 		}
-		State.NumOfWheelOnGround = WheelL->GetRayCastResult() + WheelR->GetRayCastResult();
+		State.NumOfWheelOnGround = WheelL->GetIsWheelOnGround() + WheelR->GetIsWheelOnGround();
 		WheelL->PreStepWheel(InMacroDeltaTime);
 		WheelR->PreStepWheel(InMacroDeltaTime);
 	}
@@ -390,9 +401,10 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 			WheelL->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.LeftWheelSteeringAngle,
+				0.f,
 				0.f
 			);
-			State.NumOfWheelOnGround = WheelL->GetRayCastResult();
+			State.NumOfWheelOnGround = WheelL->GetIsWheelOnGround();
 			WheelL->PreStepWheel(InMacroDeltaTime);
 		}
 
@@ -401,9 +413,10 @@ void UVehicleAxleAssemblyComponent::PreStepAxle(
 			WheelR->PreStepIndependentSuspension(
 				InMacroDeltaTime,
 				State.RightWheelSteeringAngle,
+				0.f,
 				0.f
 			);
-			State.NumOfWheelOnGround = WheelR->GetRayCastResult();
+			State.NumOfWheelOnGround = WheelR->GetIsWheelOnGround();
 			WheelR->PreStepWheel(InMacroDeltaTime);
 		}
 	}
@@ -733,28 +746,44 @@ void UVehicleAxleAssemblyComponent::ApplySolidAxleStateDirect(float InExtensionR
 	const int32 Iteration = 2;
 	for (int32 i = 0; i < Iteration; i++)
 	{
-		FVector LeftHitLocation, RightHitLocation;
+		FVehicleSuspensionSimContext Ctx_L;
+		FVehicleSuspensionSimContext Ctx_R;
 
-		FVehicleSuspensionSimContext LeftCtx;
-		LeftWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, LeftHitLocation, &LeftState, LeftCtx);
+		LeftWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, &LeftState, Ctx_L);
+		RightWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, &RightState, Ctx_R);
 
-		FVehicleSuspensionSimContext RightCtx;
-		RightWheel->StartApplySolidAxleStateDirect(InExtensionRatio, SteeringAngle, RightHitLocation, &RightState, RightCtx);
-
-		// the track width
 		float TrackWidth = GetTrackWidth();
+		float AxleHalfWidth = (
+			TrackWidth
+			- LeftWheel->GetSuspensionKinematicsConfig().HubOffsetFromLowerJoint.Y
+			- RightWheel->GetSuspensionKinematicsConfig().HubOffsetFromLowerJoint.Y
+			) * 0.5f;
+
+		FVector3f LeftTopMount = LeftWheel->GetTopMountChassisLocation();
+		FVector3f RightTopMount = RightWheel->GetTopMountChassisLocation();
+
+		FVector3f AxleCenter = FVector3f::ZeroVector;
+		FQuat4f AxleRotation = FQuat4f::Identity;
+
+		float StrutRealLength_L = Ctx_L.StrutCurrentLength + LeftWheel->GetSuspensionKinematicsConfig().MinStrutLength;
+		float StrutRealLength_R = Ctx_R.StrutCurrentLength + RightWheel->GetSuspensionKinematicsConfig().MinStrutLength;
+
+		FVehicleSuspensionSolver::SolveSolidAxlePosture(
+			LeftTopMount, RightTopMount,
+			StrutRealLength_L, StrutRealLength_R,
+			AxleHalfWidth,
+			AxleCenter, AxleRotation
+		);
 
 		LeftWheel->FinalizeApplySolidAxleStateDirect(
-			LeftCtx,
-			TrackWidth,
-			LeftHitLocation,
-			RightHitLocation
+			Ctx_L,
+			AxleHalfWidth,
+			AxleCenter, AxleRotation
 		);
 		RightWheel->FinalizeApplySolidAxleStateDirect(
-			RightCtx,
-			TrackWidth,
-			RightHitLocation,
-			LeftHitLocation
+			Ctx_R,
+			AxleHalfWidth,
+			AxleCenter, AxleRotation
 		);
 
 		LeftState = LeftWheel->GetSuspensionState(); 

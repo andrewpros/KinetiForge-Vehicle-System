@@ -54,7 +54,7 @@ void FVehicleWheelSolver::PreStep(
 	Context.GravityComp2D = CalculateGravityCompensationOnSlope(
 		LocalState, Context,
 		Context.ForceIntoSurface,
-		SuspensionState.bHitGround,
+		SuspensionState.bWheelOnGround,
 		Context.LongForceDir,
 		Context.LatForceDir
 	);
@@ -95,7 +95,7 @@ void FVehicleWheelSolver::Substep(
 	LocalState.DriveTorque = InDriveTorque + LocalState.P4MotorTorque;
 
 	float TargetBrakeTorque = FMath::Max(0.f, FMath::Abs(InBrakeTorque) + LocalState.BrakeTorqueFromESP);
-	PredictSlipAndUpdateABS(LocalState, Context, ABSConfig, TargetBrakeTorque, SuspensionState.bHitGround);
+	PredictSlipAndUpdateABS(LocalState, Context, ABSConfig, TargetBrakeTorque, SuspensionState.bWheelOnGround);
 
 	LocalState.BrakeTorqueFromHandbrake = FMath::Abs(InHandbrakeTorque);
 	LocalState.BrakeTorque = LocalState.BrakeTorqueFromBrake + Config.RollingRisistance + LocalState.BrakeTorqueFromHandbrake;
@@ -110,7 +110,7 @@ void FVehicleWheelSolver::Substep(
 		SuspensionState.EffectiveSprungMassLong,
 		SuspensionState.EffectiveSprungMassLat,
 		ForceIntoSurface,
-		SuspensionState.bHitGround,
+		SuspensionState.bWheelOnGround,
 		Context.LongForceDirUnNorm,
 		Context.LatForceDirUnNorm,
 		Context.LongForceDir,
@@ -257,12 +257,12 @@ void FVehicleWheelSolver::PredictSlipAndUpdateABS(
 	const FVehicleWheelSimContext& Context,
 	const FVehicleABSConfig& ABSConfig,
 	const float TargetBrakeTorque, 
-	const bool bHitGround)
+	const bool bOnGround)
 {
 	// predict angular velocity
 	float PredictedOmega = LocalState.AngularVelocity + LocalState.AngularAcceleration * Context.SubstepDeltaTime;
 	float PredictedVSlip = PredictedOmega * Context.R - LocalState.LocalLinearVelocity.X;
-	PredictedVSlip *= bHitGround;
+	PredictedVSlip *= bOnGround;
 	float Denominator = FMath::Max(FMath::Max(FMath::Abs(LocalState.LocalLinearVelocity.X), FMath::Abs(PredictedOmega * Context.R)), 1.f);
 	LocalState.PredictedSlipRatio = PredictedVSlip / Denominator;
 
@@ -273,7 +273,7 @@ void FVehicleWheelSolver::PredictSlipAndUpdateABS(
 	LocalState.bABSTriggered = 
 		ABSConfig.bAntiBrakeSystemEnabled
 		&& TargetBrakeTorque > SMALL_NUMBER
-		&& bHitGround
+		&& bOnGround
 		&& FMath::Abs(LocalState.LocalLinearVelocity.X) > ABSConfig.ActivationSpeed
 		&& AbsolutSlip > ABSConfig.OptimalSlip
 		&& bDifferentSign;
@@ -385,7 +385,7 @@ void FVehicleWheelSolver::WheelAcceleration(
 
 void FVehicleWheelSolver::UpdateSlipAngle(
 	FVehicleWheelSimState& LocalState,
-	const bool bHitGround)
+	const bool bOnGround)
 {
 	//get velocity2d
 	FVector2f Velocity2DNormalized = LocalState.LocalLinearVelocity.GetSafeNormal();
@@ -403,18 +403,18 @@ void FVehicleWheelSolver::UpdateSlipAngle(
 	float Alpha = FMath::GetMappedRangeValueClamped(FVector2f(0.01f, 0.1f), FVector2f(0.f, 1.f), LocalState.LocalLinearVelocity.SquaredLength());
 
 	//combine low speed and high speed
-	LocalState.SlipAngle = FMath::Lerp(LowSpeedSlipAngle, SlipAngleRaw, Alpha) * bHitGround;
+	LocalState.SlipAngle = FMath::Lerp(LowSpeedSlipAngle, SlipAngleRaw, Alpha) * bOnGround;
 	LocalState.SlipAngle = FMath::Clamp(LocalState.SlipAngle, -90.f, 90.f);
 }
 
 void FVehicleWheelSolver::UpdateSlipRatio(
 	FVehicleWheelSimState& LocalState,
 	const FVehicleWheelSimContext& Context, 
-	const bool bHitGround)
+	const bool bOnGround)
 {
 	//Calculate longitudinal slip
 	LocalState.LongSlipVelocity = LocalState.AngularVelocity * Context.R - LocalState.LocalLinearVelocity.X;
-	LocalState.LongSlipVelocity *= bHitGround;
+	LocalState.LongSlipVelocity *= bOnGround;
 
 	//calculate slip ratio
 	float Denominator = FMath::Max(FMath::Max(FMath::Abs(LocalState.LocalLinearVelocity.X), FMath::Abs(LocalState.AngularVelocity * Context.R)), 1.f);
@@ -424,10 +424,10 @@ void FVehicleWheelSolver::UpdateSlipRatio(
 FVector2f FVehicleWheelSolver::UpdateTransientSlip(
 	FVehicleWheelSimState& LocalState,
 	const FVehicleWheelSimContext& Context,
-	const bool bHitGround, 
+	const bool bOnGround, 
 	const FVector2f& RelaxationLength)
 {
-	if (bHitGround)
+	if (bOnGround)
 	{
 		const FVector2f SafeRelaxationLength = FVector2f::Max(RelaxationLength, FVector2f(SMALL_NUMBER));
 
@@ -495,11 +495,11 @@ FVector2f FVehicleWheelSolver::CalculateGravityCompensationOnSlope(
 	FVehicleWheelSimState& LocalState,
 	FVehicleWheelSimContext& Context,
 	const float PositiveForceIntoSurface,
-	const bool bHitGround,
+	const bool bOnGround,
 	const FVector3f& LongForceDir, 
 	const FVector3f& LatForceDir)
 {
-	if (!bHitGround)
+	if (!bOnGround)
 	{
 		return FVector2f(0.f);
 	}
@@ -552,7 +552,7 @@ FVector2f FVehicleWheelSolver::SolveTireForce(
 	const float EffectiveSprungMassLong,
 	const float EffectiveSprungMassLat,
 	const float PositiveForceIntoSurface,
-	const bool bHitGround,
+	const bool bOnGround,
 	const FVector3f& LongForceDirUnNorm,
 	const FVector3f& LatForceDirUnNorm,
 	const FVector3f& LongForceDir,
@@ -561,10 +561,10 @@ FVector2f FVehicleWheelSolver::SolveTireForce(
 	const FVehicleWheelCachedLUTs& TireLUTs)
 {
 	// not for tire force now but for abs and tc logic
-	UpdateSlipRatio(LocalState, Context, bHitGround);
-	UpdateSlipAngle(LocalState, bHitGround);
+	UpdateSlipRatio(LocalState, Context, bOnGround);
+	UpdateSlipAngle(LocalState, bOnGround);
 
-	if (!bHitGround)
+	if (!bOnGround)
 	{
 		return FVector2f(0.f);
 	}
@@ -585,7 +585,7 @@ FVector2f FVehicleWheelSolver::SolveTireForce(
 	);
 
 	// get absolut slip ratio and slip angle
-	FVector2f TransientSlip = UpdateTransientSlip(LocalState, Context, bHitGround, TireConfig.RelaxationLength);
+	FVector2f TransientSlip = UpdateTransientSlip(LocalState, Context, bOnGround, TireConfig.RelaxationLength);
 	FVector2f AbsolutSlip = TransientSlip.GetAbs();
 
 	// normalize slip ratio and slip angle

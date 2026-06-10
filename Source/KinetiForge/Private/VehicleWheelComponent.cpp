@@ -257,7 +257,8 @@ void UVehicleWheelComponent::ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* c
 void UVehicleWheelComponent::PreStepIndependentSuspension(
 	const float InMacroDeltaTime,
 	const float InSteeringAngle,
-	const float InSwaybarForce)
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ)
 {
 	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
 
@@ -290,13 +291,15 @@ void UVehicleWheelComponent::PreStepIndependentSuspension(
 		ChassisHandle,
 		InMacroDeltaTime,
 		InSteeringAngle,
-		InSwaybarForce);
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ);
 }
 
 void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 	FVehicleSuspensionSimContext& Ctx,
 	const float InSteeringAngle,
-	FVector& OutHitWorldLocation)
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
@@ -313,22 +316,26 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 	Suspension.StartUpdateSolidAxle(
 		WheelConfig.Radius,
 		WheelConfig.Width,
+		WheelConfig.Inertia,
 		SuspensionKinematicsConfig,
+		SuspensionSpringConfig,
 		GetRelativeTransform(),
 		ChassisAsyncWorldTransform,
 		GetWorld(),
 		InSteeringAngle,
-		OutHitWorldLocation,
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ,
 		Ctx);
 }
 
 void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 	FVehicleSuspensionSimContext& Ctx,
 	const float InMacroDeltaTime,
-	const float InSwaybarForce,
-	const float InTrackWidth,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation)
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
 	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
 
@@ -340,18 +347,18 @@ void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 
 	Suspension.FinalizeUpdateSolidAxle(
 		WheelConfig.Radius,
-		WheelConfig.Inertia,
 		SuspensionKinematicsConfig,
 		SuspensionSpringConfig,
 		ChassisAsyncWorldTransform,
 		ChassisHandle,
 		InMacroDeltaTime,
-		InSwaybarForce,
-		Ctx,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation,
-		Wheel.State.TireForce
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ, 
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation,
+		Wheel.State.TireForce,
+		Ctx
 	);
 }
 
@@ -656,13 +663,14 @@ float UVehicleWheelComponent::GetNormalizedSlip(float LongitudinalScale, float L
 }
 
 void UVehicleWheelComponent::UpdatePhysics(
-	float InPhysicsDeltaTime,
-	float InDriveTorque,
-	float InBrakeTorque, 
-	float InHandbrakeTorque,
-	float InSteeringAngle, 
-	float InSwaybarForce, 
-	float InReflectedInertia)
+	const float InPhysicsDeltaTime,
+	const float InDriveTorque,
+	const float InBrakeTorque,
+	const float InHandbrakeTorque,
+	const float InSteeringAngle,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
+	const float InReflectedInertia)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
@@ -671,7 +679,8 @@ void UVehicleWheelComponent::UpdatePhysics(
 	PreStepIndependentSuspension(
 		InPhysicsDeltaTime,
 		InSteeringAngle,
-		InSwaybarForce
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ
 	);
 
 	PreStepWheel(
@@ -714,8 +723,9 @@ bool UVehicleWheelComponent::CheckHasBeenMoved()
 }
 
 void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
-	float InSteeringAngle,
-	FVector& OutHitWorldLocation,
+	const float InSteeringAngle,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
 	FVehicleSuspensionSimContext& Ctx
 )
 {
@@ -724,21 +734,23 @@ void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
 	StartPreStepSolidAxleSuspension(
 		Ctx,
 		InSteeringAngle,
-		OutHitWorldLocation
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ
 	);
 }
 
 void UVehicleWheelComponent::FinalizeUpdateSolidAxlePhysics(
-	float InPhysicsDeltaTime,
-	float InDriveTorque,
-	float InBrakeTorque,
-	float InHandbrakeTorque,
-	float InSwaybarForce,
-	float InReflectedInertia,
-	FVehicleSuspensionSimContext& Ctx,
-	const float InTrackWidth,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation
+	const float InPhysicsDeltaTime,
+	const float InDriveTorque,
+	const float InBrakeTorque,
+	const float InHandbrakeTorque,
+	const float ActiveSwaybarStiffness,
+	const float OtherHubChassisZ,
+	const float InReflectedInertia,
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation,
+	FVehicleSuspensionSimContext& Ctx
 )
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
@@ -746,10 +758,11 @@ void UVehicleWheelComponent::FinalizeUpdateSolidAxlePhysics(
 	FinalizePreStepSolidAxleSuspension(
 		Ctx,
 		InPhysicsDeltaTime,
-		InSwaybarForce,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		ActiveSwaybarStiffness,
+		OtherHubChassisZ,
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	PreStepWheel(
@@ -791,7 +804,6 @@ void UVehicleWheelComponent::RoughlyInitializeSuspensionState(FVehicleSuspension
 void UVehicleWheelComponent::StartApplySolidAxleStateDirect(
 	float InExtensionRatio, 
 	float InSteeringAngle,
-	FVector& OutHitWorldLocation,
 	const FVehicleSuspensionSimState* PrevState,
 	FVehicleSuspensionSimContext& Ctx)
 {
@@ -802,24 +814,23 @@ void UVehicleWheelComponent::StartApplySolidAxleStateDirect(
 		GetRelativeTransform(),
 		InExtensionRatio, 
 		InSteeringAngle, 
-		OutHitWorldLocation,
 		Ctx
 	);
 }
 
 void UVehicleWheelComponent::FinalizeApplySolidAxleStateDirect(
 	FVehicleSuspensionSimContext& Ctx,
-	const float InTrackWidth,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation)
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
 	Suspension.State = Suspension.FinalizeSolveSolidAxleAtExtension(
 		WheelConfig.Radius,
 		SuspensionKinematicsConfig,
 		Ctx,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	UpdateWheelAnim();
@@ -1162,7 +1173,7 @@ void UVehicleWheelComponent::UpdateShockAbsorberAnim(USceneComponent* InUpperStr
 	{
 		// 弹簧的当前长度，可能需要减去一些两端底座的厚度常数，这里简化为总长度
 		// 如果你的弹簧只是减震器的一部分，你可以传入一个 SpringOffset 扣除掉不可压缩长度
-		float ScaleZ = Suspension.State.SuspensionCurrentLength / FMath::Max(0.1f, SpringDesignLength);
+		float ScaleZ = Suspension.State.StrutCurrentLength / FMath::Max(0.1f, SpringDesignLength);
 
 		FVector SpringScale = FVector::OneVector;
 		// 同样的魔法：根据传入的轴向，只缩放那个轴

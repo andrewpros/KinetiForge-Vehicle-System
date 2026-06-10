@@ -31,35 +31,39 @@ public:
 		const FTransform& AsyncChassisWorldTransform,
 		const UWorld* CurrentWorld,
 		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
-		float InDeltaTime,
-		float InSteeringAngle,
-		float InSwaybarForce
+		const float InDeltaTime,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 	void StartUpdateSolidAxle(
 		const float WheelRadius,
 		const float WheelWidth,
+		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
+		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
 		const UWorld* CurrentWorld,
-		float InSteeringAngle,
-		FVector& OutHitWorldLocation,
+		const float InSteeringAngle,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
 		FVehicleSuspensionSimContext& Ctx
 	);
 	void FinalizeUpdateSolidAxle(
 		const float WheelRadius,
-		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& AsyncChassisWorldTransform,
 		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
 		float InDeltaTime,
-		float InSwaybarForce,
-		FVehicleSuspensionSimContext& Ctx,
-		const float InTrackWidth,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation,
-		const FVector3f& TireForce
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ,
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation,
+		const FVector3f& TireForce,
+		FVehicleSuspensionSimContext& Ctx
 	);
 	static void RoughlyInitializeState(
 		const FTransform& ComponentRelativeTransform,
@@ -83,16 +87,15 @@ public:
 		const FTransform& ComponentRelativeTransform,
 		float InExtensionRatio,
 		float InSteeringAngle,
-		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
 	static FVehicleSuspensionSimState FinalizeSolveSolidAxleAtExtension(
 		const float WheelRadius,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		FVehicleSuspensionSimContext& Ctx,
-		const float InTrackWidth,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation
 	);
 	void DrawSuspension(
 		UVehicleWheelComponent* WheelComponent,
@@ -167,6 +170,16 @@ public:
 		FVector3f& OutBallJointChassisLocation
 	);
 
+	static void SolveSolidAxlePosture(
+		const FVector3f& LeftTopMountChassis,
+		const FVector3f& RightTopMountChassis,
+		const float LeftStrutLength,
+		const float RightStrutLength,
+		const float AxleHalfWidth,
+		FVector3f& OutAxleCenter,
+		FQuat4f& OutAxleRotation
+	);
+
 	FVehicleSuspensionSimState State;
 	FVehicleSuspensionCachedLUTs CachedLUTs;
 	FVehicleSuspensionHitResult RayCastResult;
@@ -203,6 +216,16 @@ private:
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
 		const float EquivalentSphereTraceRadius
+	);
+	static void UpdateStrutLength(
+		FVehicleSuspensionSimContext& Ctx,
+		const float WheelRadius,
+		const float WheelInertia,
+		const FVehicleSuspensionKinematicsConfig& KineConfig,
+		const FVehicleSuspensionSpringConfig& SpringConfig,
+		const FVehicleSuspensionCachedLUTs& LUTs,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 	static void CacheImpactFriction(
 		FVehicleSuspensionSimContext& Ctx
@@ -257,6 +280,7 @@ private:
 		const UWorld* World,
 		const float WheelRadius,
 		const float HalfWheelWidth,
+		const float WheelInertia,
 		const FCollisionQueryParams& QueryParams,
 		const FCollisionResponseParams& ResponseParams,
 		const FVehicleSuspensionKinematicsConfig& Config
@@ -297,9 +321,9 @@ private:
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
 		const FVehicleSuspensionKinematicsConfig& Config,
-		const float TrackWidth,
-		const FVector ThisWheelHitWorldLocation,
-		const FVector OtherWheelHitWorldLocation
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation
 	);
 	static bool Solve2DLineIntersection(
 		const FVector2f& P1, const FVector2f& P2,
@@ -364,10 +388,11 @@ private:
 	static void ComputeSuspensionForce(
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
-		const float WheelInertia,
 		const FVehicleChassisSimState& ChassisState,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
-		const FVehicleSuspensionCachedLUTs& LUTs
+		const FVehicleSuspensionCachedLUTs& LUTs,
+		const float ActiveSwaybarStiffness,
+		const float OtherHubChassisZ
 	);
 };

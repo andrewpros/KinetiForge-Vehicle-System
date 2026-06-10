@@ -131,6 +131,13 @@ struct KINETIFORGE_API FVehicleSuspensionKinematicsConfig
 	FRotator3f StaticSpindleRotation = FRotator3f(0.f, 0.f, 5.f);
 
 	/**
+	* Unsprung mass but not including the mass of the wheel.
+	* Set to 0 or <0 to disable unsprung mass calculation. (Better handling and more stable, but less realistic, if disabled)
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float SuspensionAndBrakeMass = 20.f;
+
+	/**
 	* X: SuspensionCompressionRatio; Y:CamberGain; Only enabled when the suspension type is double-wishbone
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -258,12 +265,24 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 {
 	GENERATED_BODY()
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	bool bIsRightWheel = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	bool bWheelOnGround = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RayCast")
+	bool bHitGround = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RayCast")
+	bool bValidKinematicsConfig = true;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
 	float SteeringAngle = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
-	float SuspensionCurrentLength = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
+	float StrutCurrentLength = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Geometry")
+	float StrutCurrentVelocity = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float StaticSprungMass = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
+	float VirtualUnsprungMass = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
 	float EffectiveSprungMassNormal = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mass")
@@ -298,12 +317,6 @@ struct KINETIFORGE_API FVehicleSuspensionSimState
 	FVector3f ImpactWorldNormal = FVector3f(0.f);
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RayCast")
 	FVector ImpactWorldLocation = FVector(0.f);
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
-	bool bIsRightWheel = true;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RayCast")
-	bool bHitGround = true;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RayCast")
-	bool bValidKinematicsConfig = true;
 };
 
 USTRUCT(BlueprintType, meta = (ToolTip = "Suspension context (temporary cache) in simulation"))
@@ -321,9 +334,13 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 
 	float HitDistance = 0.f;
 
-	float SuspensionCurrentLength = 0.f;
+	float StrutCurrentLength = 0.f;
 
-	float SuspensionExtensionRatio = 0.f;
+	float StrutLastLength = 0.f;
+
+	float StrutCurrentVelocity = 0.f;
+
+	float CurrentExtensionRatio = 0.f;
 
 	float SteeringAngle = 0.f;
 
@@ -331,9 +348,11 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 
 	float SwaybarForce = 0.f;
 
-	float SuspensionForce = 0.f;
+	float StrutForce = 0.f;
 
 	float ForceAlongImpactNormal = 0.f;
+
+	float CriticalDamping = 0.f;
 
 	float StaticSprungMass = 0.f;
 
@@ -342,6 +361,8 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 	float EffectiveSprungMassLong = 0.f;
 
 	float EffectiveSprungMassLat = 0.f;
+
+	float VirtualUnsprungMass = 40.f;
 
 	float WorldGravityZ = 9.8f;
 
@@ -421,6 +442,8 @@ struct KINETIFORGE_API FVehicleSuspensionSimContext
 	FHitResult HitResult = FHitResult();
 
 	bool bHitGround = true;
+
+	bool bWheelOnGround = true;
 
 	bool bRayCastRefined = false;
 

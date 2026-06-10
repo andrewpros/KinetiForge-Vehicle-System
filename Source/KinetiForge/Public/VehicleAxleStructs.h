@@ -116,8 +116,6 @@ struct FVehicleAxleSimState
 	float LeftDriveTorque = 0.f;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
 	float RightDriveTorque = 0.f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
-	float SwaybarForce = 0.f;	//for left wheel
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
 	float ReflectedInertiaOnWheel = 0.f;	//on single wheel
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Force")
