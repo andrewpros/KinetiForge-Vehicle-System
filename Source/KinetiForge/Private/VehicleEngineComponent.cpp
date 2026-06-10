@@ -49,7 +49,9 @@ void UVehicleEngineComponent::EngineAcceleration()
 	float AbsolutRPM = FMath::Abs(State.EngineRPM);
 
 	// internal friction of the engine
-	float FrictionTorque = NAConfig.StartFriction + NAConfig.FrictionCoefficient * AbsolutRPM;
+	float MechFriction = NAConfig.StartFriction + NAConfig.FrictionCoefficient * AbsolutRPM;
+	float PumpingLoss = NAConfig.PumpingLossCoefficient * AbsolutRPM * FMath::Clamp(1.0f - State.RealThrottle, 0.f, 1.f);
+	float FrictionTorque = MechFriction + PumpingLoss;
 
 	// check if there is combustion
 	bool bCombustion = State.bFuelInjection && State.bSpark;

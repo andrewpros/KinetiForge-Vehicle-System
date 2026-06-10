@@ -51,6 +51,12 @@ struct KINETIFORGE_API FVehicleNaturallyAspiratedEngineConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EngineSetup", meta = (ClampMin = "0.0"))
 	float FrictionCoefficient = 0.005f;
 
+	/**
+	* The Slope (Tangent) of the friction of engine caused by pumping
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EngineSetup", meta = (ClampMin = "0.0"))
+	float PumpingLossCoefficient = 0.005f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EngineSetup", meta = (ClampMin = "0.0", AdvancedDisplay))
 	float IdleThrottleInterpSpeed = 1.f;
 
