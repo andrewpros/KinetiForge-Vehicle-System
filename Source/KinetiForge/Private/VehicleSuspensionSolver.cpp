@@ -1107,39 +1107,45 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		float CurrentVelocity = Ctx.StrutCurrentVelocity;
 		float CurrentForce = 0.f;
 
+		float StrutZProj = FMath::Abs(Ctx.StrutChassisDirection.Z);
+		float EffectiveSwaybarStiffness = ActiveSwaybarStiffness * StrutZProj * StrutZProj;
+		float TotalStiffness = EquivSpring + EffectiveSwaybarStiffness;
+
+		const float m_to_cm = 100.f;
+
 		for (int32 i = 0; i < Substeps; ++i)
 		{
 			float CurrentSubstepTime = (i + 1) * SubDt;
 			float InterpolatedGroundLimit = StrutLastLength + GroundRelativeVelocity * CurrentSubstepTime;
 
-			// 1. 计算所有非阻尼力（显式部分）
+			// 1. 计算当前的显式静态力 
 			float SpringCompression = KineConfig.Stroke - CurrentLength;
 			float SpringForce = EquivSpring * SpringCompression;
 
-			// 计算防倾杆虚拟弹簧力
 			float LengthDelta = CurrentLength - StrutLastLength;
-			float StrutZProj = FMath::Abs(Ctx.StrutChassisDirection.Z);
 			float SimulatedChassisZ = ThisWheelChassisZ - LengthDelta * StrutZProj;
 			float ZDifference = SimulatedChassisZ - OtherHubChassisZ;
 			float SwaybarForceOnUnsprung = ActiveSwaybarStiffness * ZDifference * StrutZProj;
 
-			// 静态合力
 			float StaticForce = SpringForce + GravityForce + Preload + SwaybarForceOnUnsprung;
 
-			// 2. 利用静态力预测速度
-			float PredictedVelocity = CurrentVelocity + (StaticForce * VirtualUnsprungMassInv) * 100.f * SubDt;
+			// 2. 基于显式力预测速度 ( 100.f 单位换算)
+			float PredictedVelocity = CurrentVelocity + (StaticForce * VirtualUnsprungMassInv) * m_to_cm * SubDt;
 
-			// 3. 隐式阻尼求解（核心）
-			// 根据预测速度的方向来决定使用压缩还是回弹阻尼
+			// 3. 全隐式求解分母 (Implicit Denominator)
 			float EquivDamp = (PredictedVelocity > 0.f) ? ReboundDamp : CompDamp;
 
-			// 隐式分母：1 + (C * dt / m)
-			float DampingDenominator = 1.f + (EquivDamp * SubDt * VirtualUnsprungMassInv);
+			// 隐式阻尼项: C * dt / m
+			float ImplicitDampingTerm = EquivDamp * SubDt * VirtualUnsprungMassInv;
 
-			// 更新最终速度
+			// 隐式刚度项: K * dt^2 / m (需要带上和加速度相同的 100.f 单位换算)
+			float ImplicitSpringTerm = TotalStiffness * VirtualUnsprungMassInv * SubDt * SubDt * m_to_cm;
+
+			// 核心魔法：把刚度项加入分母，彻底消除震荡
+			float DampingDenominator = 1.f + ImplicitDampingTerm + ImplicitSpringTerm;
+
+			// 4. 更新最终速度与位置
 			CurrentVelocity = PredictedVelocity / DampingDenominator;
-
-			// 4. 更新位置
 			CurrentLength += CurrentVelocity * SubDt;
 
 			// 运动学约束
