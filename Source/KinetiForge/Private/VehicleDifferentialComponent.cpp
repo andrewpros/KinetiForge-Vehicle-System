@@ -125,7 +125,9 @@ int32 UVehicleDifferentialComponent::SubstepTransferCase_Internal(
 		{
 			//central diff
 			float AngVelDifference = AverageAxleAngularVelocity - Axle->GetAngularVelocity();
-			float TorqueBias = UVehicleUtilities::SafeDivide(AngVelDifference * Axle->GetTotalAxleInertia() * Config.LockRatio, InSubstepDeltaTime);
+			bool bIsDrive = (DriveTorque * AverageAxleAngularVelocity) >= 0.f;
+			float CurrentLockRatio = bIsDrive ? Config.DriveLockRatio : Config.CoastLockRatio;
+			float TorqueBias = UVehicleUtilities::SafeDivide(AngVelDifference * Axle->GetTotalAxleInertia() * CurrentLockRatio, InSubstepDeltaTime);
 			float NormTorqueWeight = UVehicleUtilities::SafeDivide(Axle->GetAxleConfig().TorqueWeight, SumTorqueWeight);
 			float AxleDriveTorque = DriveTorque * NormTorqueWeight + TorqueBias;
 
@@ -271,11 +273,13 @@ void UVehicleDifferentialComponent::GetOutputTorque(
 	}
 
 	float AverageAngularVelocity = 0.5 * (InLeftAngularVelocity + InRightAngularVelocity);
+	bool bIsDrive = (OpenDiffTorque * AverageAngularVelocity) >= 0.f;
+	float CurrentLockRatio = bIsDrive ? Config.DriveLockRatio : Config.CoastLockRatio;
 
 	//calculate the torque required for both sides to match the average angular velocity
 	float DeltaTimeInv = 1.f / InDeltaTime;
-	float LeftTorqueBias = (AverageAngularVelocity - InLeftAngularVelocity) * InLeftTotalInertia * DeltaTimeInv * Config.LockRatio;
-	float RightTorqueBias = (AverageAngularVelocity - InRightAngularVelocity) * InRightTotalInertia * DeltaTimeInv * Config.LockRatio;
+	float LeftTorqueBias = (AverageAngularVelocity - InLeftAngularVelocity) * InLeftTotalInertia * DeltaTimeInv * CurrentLockRatio;
+	float RightTorqueBias = (AverageAngularVelocity - InRightAngularVelocity) * InRightTotalInertia * DeltaTimeInv * CurrentLockRatio;
 
 	OutLeftTorque = OpenDiffTorque + LeftTorqueBias;
 	OutRightTorque = OpenDiffTorque + RightTorqueBias;
