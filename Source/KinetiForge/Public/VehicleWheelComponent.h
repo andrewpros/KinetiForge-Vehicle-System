@@ -145,16 +145,15 @@ public:
 		FVehicleSuspensionSimContext& Ctx,
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
-		const float OtherHubChassisZ,
-		FVector& OutHitWorldLocation);
+		const float OtherHubChassisZ);
 	void FinalizePreStepSolidAxleSuspension(
 		FVehicleSuspensionSimContext& Ctx,
 		const float InMacroDeltaTime,
-		const float InTrackWidth,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation);
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation);
 
 	void PreStepWheel(
 		float InMacroDeltaTime);
@@ -241,6 +240,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	FVector3f GetTopMountChassisLocation();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
+	FVector3f GetLowerBallJointChassisLocation() { return Suspension.State.LowerBallJointChassisLocation; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
 	void GetLowerWishboneState(
@@ -344,7 +346,6 @@ public:
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
-		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
 
@@ -356,16 +357,16 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void FinalizeUpdateSolidAxlePhysics(
-		const float InPhysicsDeltaTime, 
+		const float InPhysicsDeltaTime,
 		const float InDriveTorque,
 		const float InBrakeTorque,
 		const float InHandbrakeTorque,
-		const float InTrackWidth,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
 		const float InReflectedInertia,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation,
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation,
 		FVehicleSuspensionSimContext& Ctx);
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
@@ -378,16 +379,15 @@ public:
 	void StartApplySolidAxleStateDirect(
 		float InExtensionRatio,
 		float InSteeringAngle,
-		FVector& OutHitWorldLocation,
 		const FVehicleSuspensionSimState* PrevState,
 		FVehicleSuspensionSimContext& Ctx
 	);
 
 	void FinalizeApplySolidAxleStateDirect(
 		FVehicleSuspensionSimContext& Ctx,
-		const float InTrackWidth,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation
 	);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")

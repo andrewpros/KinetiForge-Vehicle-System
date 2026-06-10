@@ -299,8 +299,7 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 	FVehicleSuspensionSimContext& Ctx,
 	const float InSteeringAngle,
 	const float ActiveSwaybarStiffness,
-	const float OtherHubChassisZ,
-	FVector& OutHitWorldLocation)
+	const float OtherHubChassisZ)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdatePhysics);
 
@@ -326,18 +325,17 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 		InSteeringAngle,
 		ActiveSwaybarStiffness,
 		OtherHubChassisZ,
-		OutHitWorldLocation,
 		Ctx);
 }
 
 void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 	FVehicleSuspensionSimContext& Ctx,
 	const float InMacroDeltaTime,
-	const float InTrackWidth,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation)
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
 	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
 
@@ -349,16 +347,16 @@ void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 
 	Suspension.FinalizeUpdateSolidAxle(
 		WheelConfig.Radius,
-		InTrackWidth,
 		SuspensionKinematicsConfig,
 		SuspensionSpringConfig,
 		ChassisAsyncWorldTransform,
 		ChassisHandle,
 		InMacroDeltaTime,
 		ActiveSwaybarStiffness,
-		OtherHubChassisZ,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation,
+		OtherHubChassisZ, 
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation,
 		Wheel.State.TireForce,
 		Ctx
 	);
@@ -728,7 +726,6 @@ void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
 	const float InSteeringAngle,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
-	FVector& OutHitWorldLocation,
 	FVehicleSuspensionSimContext& Ctx
 )
 {
@@ -738,8 +735,7 @@ void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
 		Ctx,
 		InSteeringAngle,
 		ActiveSwaybarStiffness,
-		OtherHubChassisZ,
-		OutHitWorldLocation
+		OtherHubChassisZ
 	);
 }
 
@@ -748,12 +744,12 @@ void UVehicleWheelComponent::FinalizeUpdateSolidAxlePhysics(
 	const float InDriveTorque,
 	const float InBrakeTorque,
 	const float InHandbrakeTorque,
-	const float InTrackWidth,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
 	const float InReflectedInertia,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation,
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation,
 	FVehicleSuspensionSimContext& Ctx
 )
 {
@@ -764,9 +760,9 @@ void UVehicleWheelComponent::FinalizeUpdateSolidAxlePhysics(
 		InPhysicsDeltaTime,
 		ActiveSwaybarStiffness,
 		OtherHubChassisZ,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	PreStepWheel(
@@ -808,7 +804,6 @@ void UVehicleWheelComponent::RoughlyInitializeSuspensionState(FVehicleSuspension
 void UVehicleWheelComponent::StartApplySolidAxleStateDirect(
 	float InExtensionRatio, 
 	float InSteeringAngle,
-	FVector& OutHitWorldLocation,
 	const FVehicleSuspensionSimState* PrevState,
 	FVehicleSuspensionSimContext& Ctx)
 {
@@ -819,24 +814,23 @@ void UVehicleWheelComponent::StartApplySolidAxleStateDirect(
 		GetRelativeTransform(),
 		InExtensionRatio, 
 		InSteeringAngle, 
-		OutHitWorldLocation,
 		Ctx
 	);
 }
 
 void UVehicleWheelComponent::FinalizeApplySolidAxleStateDirect(
 	FVehicleSuspensionSimContext& Ctx,
-	const float InTrackWidth,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation)
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
 	Suspension.State = Suspension.FinalizeSolveSolidAxleAtExtension(
 		WheelConfig.Radius,
 		SuspensionKinematicsConfig,
 		Ctx,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	UpdateWheelAnim();

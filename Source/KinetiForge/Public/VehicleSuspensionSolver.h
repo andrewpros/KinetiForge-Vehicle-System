@@ -48,12 +48,10 @@ public:
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
-		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
 	void FinalizeUpdateSolidAxle(
 		const float WheelRadius,
-		const float InTrackWidth,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& AsyncChassisWorldTransform,
@@ -61,8 +59,9 @@ public:
 		float InDeltaTime,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation,
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation,
 		const FVector3f& TireForce,
 		FVehicleSuspensionSimContext& Ctx
 	);
@@ -88,16 +87,15 @@ public:
 		const FTransform& ComponentRelativeTransform,
 		float InExtensionRatio,
 		float InSteeringAngle,
-		FVector& OutHitWorldLocation,
 		FVehicleSuspensionSimContext& Ctx
 	);
 	static FVehicleSuspensionSimState FinalizeSolveSolidAxleAtExtension(
 		const float WheelRadius,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		FVehicleSuspensionSimContext& Ctx,
-		const float InTrackWidth,
-		const FVector& InThisWheelHitWorldLocation,
-		const FVector& InOtherWheelHitWorldLocation
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation
 	);
 	void DrawSuspension(
 		UVehicleWheelComponent* WheelComponent,
@@ -170,6 +168,16 @@ public:
 		FVector3f& OutPivotChassisLocation,
 		FVector3f& OutAxisChassisDirection,
 		FVector3f& OutBallJointChassisLocation
+	);
+
+	static void SolveSolidAxlePosture(
+		const FVector3f& LeftTopMountChassis,
+		const FVector3f& RightTopMountChassis,
+		const float LeftStrutLength,
+		const float RightStrutLength,
+		const float AxleHalfWidth,
+		FVector3f& OutAxleCenter,
+		FQuat4f& OutAxleRotation
 	);
 
 	FVehicleSuspensionSimState State;
@@ -313,9 +321,9 @@ private:
 		FVehicleSuspensionSimContext& Ctx,
 		const float WheelRadius,
 		const FVehicleSuspensionKinematicsConfig& Config,
-		const float TrackWidth,
-		const FVector ThisWheelHitWorldLocation,
-		const FVector OtherWheelHitWorldLocation
+		const float AxleHalfWidth,
+		const FVector3f& AxleChassisCenter,
+		const FQuat4f& AxleChassisRotation
 	);
 	static bool Solve2DLineIntersection(
 		const FVector2f& P1, const FVector2f& P2,

@@ -171,7 +171,6 @@ void FVehicleSuspensionSolver::StartUpdateSolidAxle(
 	const float InSteeringAngle,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
-	FVector& OutHitWorldLocation,
 	FVehicleSuspensionSimContext& Ctx)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForgeVehicle_Wheel_SuspensionSolver_UpdateSuspension);
@@ -192,17 +191,10 @@ void FVehicleSuspensionSolver::StartUpdateSolidAxle(
 	UpdateStrutLength(Ctx, WheelRadius, WheelInertia, 
 		KineConfig, SpringConfig, CachedLUTs, 
 		ActiveSwaybarStiffness, OtherHubChassisZ);
-
-	const float EquivHitDistance = Ctx.CurrentExtensionRatio * Ctx.RayCastLength;
-	float DistanceToRayCastStart = FMath::Max(0.f, EquivHitDistance);
-	FVector RayDir = (Ctx.RayCastStartWorldLocation - Ctx.RayCastEndWorldLocation).GetSafeNormal();
-	FVector HubOffsetWorld = AsyncChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.HubOffsetFromLowerJointChassis);
-	OutHitWorldLocation = Ctx.RayCastStartWorldLocation - RayDir * DistanceToRayCastStart - HubOffsetWorld;
 }
 
 void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 	const float WheelRadius,
-	const float InTrackWidth,
 	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	const FVehicleSuspensionSpringConfig& SpringConfig,
 	const FTransform& AsyncChassisWorldTransform,
@@ -210,8 +202,9 @@ void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 	float InDeltaTime,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation,
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation,
 	const FVector3f& TireForce,
 	FVehicleSuspensionSimContext& Ctx)
 {
@@ -223,9 +216,9 @@ void FVehicleSuspensionSolver::FinalizeUpdateSolidAxle(
 		Ctx,
 		WheelRadius,
 		KineConfig,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	FVehicleChassisSimState ChassisState;
@@ -369,7 +362,6 @@ void FVehicleSuspensionSolver::StartSolveSolidAxleAtExtension(
 	const FTransform& ComponentRelativeTransform,
 	float InExtensionRatio, 
 	float InSteeringAngle,
-	FVector& OutHitWorldLocation,
 	FVehicleSuspensionSimContext& Ctx)
 {
 	FVehicleSuspensionSimState NewState;
@@ -398,29 +390,23 @@ void FVehicleSuspensionSolver::StartSolveSolidAxleAtExtension(
 		KineConfig
 	);
 	ComputeRayCastLocation(Ctx, KineConfig);
-
-	Ctx.HitDistance = InExtensionRatio * Ctx.RayCastLength + WheelRadius;
-	float DistanceToRayCastStart = FMath::Max(0.f, Ctx.HitDistance - WheelRadius);
-	FVector RayDir = (Ctx.RayCastStartWorldLocation - Ctx.RayCastEndWorldLocation).GetSafeNormal();
-	FVector HubOffsetWorld = (FVector)Ctx.HubOffsetFromLowerJointChassis;
-	OutHitWorldLocation = Ctx.RayCastStartWorldLocation - RayDir * DistanceToRayCastStart - HubOffsetWorld;
 }
 
 FVehicleSuspensionSimState FVehicleSuspensionSolver::FinalizeSolveSolidAxleAtExtension(
 	const float WheelRadius,
-	const FVehicleSuspensionKinematicsConfig& KineConfig, 
+	const FVehicleSuspensionKinematicsConfig& KineConfig,
 	FVehicleSuspensionSimContext& Ctx,
-	const float InTrackWidth,
-	const FVector& InThisWheelHitWorldLocation,
-	const FVector& InOtherWheelHitWorldLocation)
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
 	ComputeSolidAxle(
 		Ctx,
 		WheelRadius,
 		KineConfig,
-		InTrackWidth,
-		InThisWheelHitWorldLocation,
-		InOtherWheelHitWorldLocation
+		AxleHalfWidth,
+		AxleChassisCenter,
+		AxleChassisRotation
 	);
 
 	Ctx.StrutCurrentVelocity = 0.f;
@@ -481,10 +467,11 @@ void FVehicleSuspensionSolver::DrawSuspension(
 		// draw arm
 		if (bSolidAxle)
 		{
-			FVector OtherHubRelativePos = OtherWheel->GetHubChassisLocation();
-			FVector OtherHubWorldPos = OtherWheel->GetChassisAsyncWorldTransform().TransformPositionNoScale(OtherHubRelativePos);
-
-			DrawDebugLine(TempWorld, HubWorldPos, OtherHubWorldPos, FColor(0, 0, 255), false, Duration, 0, Thickness);
+			FVector OtherBallJointLocation = 
+				OtherWheel->GetChassisAsyncWorldTransform().TransformPositionNoScale(
+				(FVector)OtherWheel->GetLowerBallJointChassisLocation());
+			
+			DrawDebugLine(TempWorld, LowerBallJointLocation, OtherBallJointLocation, FColor(0, 0, 255), false, Duration, 0, Thickness);
 		}
 		else
 		{
@@ -857,6 +844,93 @@ void FVehicleSuspensionSolver::GetUpperWishboneState(
 
 	FVector3f AxisLocal = Config.UpperWishbone.RotationLocalAxis;
 	OutAxisChassisDirection = WheelComponentRelativeTransform.TransformVectorNoScale(AxisLocal);
+}
+
+void FVehicleSuspensionSolver::SolveSolidAxlePosture(
+	const FVector3f& LeftTopMountChassis,
+	const FVector3f& RightTopMountChassis,
+	const float LeftStrutLength,
+	const float RightStrutLength,
+	const float AxleHalfWidth,
+	FVector3f& OutAxleCenter,
+	FQuat4f& OutAxleRotation)
+{
+	// 确定 YZ 解算平面的横向原点 (完美居中于两边塔顶)
+	const float AxleCenterY = (LeftTopMountChassis.Y + RightTopMountChassis.Y) * 0.5f;
+	const float AxleCenterX = (LeftTopMountChassis.X + RightTopMountChassis.X) * 0.5f;
+
+	// 初始猜测值
+	FVector3f GuessBallJoint_L = LeftTopMountChassis - FVector3f::UpVector * LeftStrutLength;
+	FVector3f GuessBallJoint_R = RightTopMountChassis - FVector3f::UpVector * RightStrutLength;
+	float CurrentAxleCenterZ = (GuessBallJoint_L.Z + GuessBallJoint_R.Z) * 0.5f;
+
+	float GuessDeltaY = GuessBallJoint_L.Y - GuessBallJoint_L.Y;
+	float GuessDeltaZ = GuessBallJoint_L.Z - GuessBallJoint_L.Z;
+	float CurrentRollAngle = 0.f /* FMath::Atan2(GuessDeltaY, GuessDeltaZ) <-有奇点，不如直接把初始值设为 0 */;
+
+	const float TargetLeftStrutSq = LeftStrutLength * LeftStrutLength;
+	const float TargetRightStrutSq = RightStrutLength * RightStrutLength;
+
+	// 最多 5 次迭代
+	for (int32 Iteration = 0; Iteration < 5; ++Iteration)
+	{
+		float SinTheta = FMath::Sin(CurrentRollAngle);
+		float CosTheta = FMath::Cos(CurrentRollAngle);
+
+		// 基于当前猜测值，计算左右下球头的坐标
+		float LeftBallJointY = AxleCenterY - AxleHalfWidth * CosTheta;
+		float LeftBallJointZ = CurrentAxleCenterZ - AxleHalfWidth * SinTheta;
+
+		float RightBallJointY = AxleCenterY + AxleHalfWidth * CosTheta;
+		float RightBallJointZ = CurrentAxleCenterZ + AxleHalfWidth * SinTheta;
+
+		// 计算塔顶到当前球头的空间向量差值
+		float DeltaY_Left = LeftTopMountChassis.Y - LeftBallJointY;
+		float DeltaZ_Left = LeftTopMountChassis.Z - LeftBallJointZ;
+
+		float DeltaY_Right = RightTopMountChassis.Y - RightBallJointY;
+		float DeltaZ_Right = RightTopMountChassis.Z - RightBallJointZ;
+
+		// 计算残差 (Residuals)，目标是让它们逼近 0
+		float Residual_Left = (DeltaY_Left * DeltaY_Left) + (DeltaZ_Left * DeltaZ_Left) - TargetLeftStrutSq;
+		float Residual_Right = (DeltaY_Right * DeltaY_Right) + (DeltaZ_Right * DeltaZ_Right) - TargetRightStrutSq;
+
+		// 偏导数/雅可比矩阵元素 (Jacobian Elements)
+		// J11: Left 残差对 CenterZ 的导数
+		float J11 = -2.0f * DeltaZ_Left;
+		// J12: Left 残差对 RollAngle 的导数
+		float J12 = -2.0f * DeltaY_Left * (AxleHalfWidth * SinTheta) + 2.0f * DeltaZ_Left * (AxleHalfWidth * CosTheta);
+
+		// J21: Right 残差对 CenterZ 的导数
+		float J21 = -2.0f * DeltaZ_Right;
+		// J22: Right 残差对 RollAngle 的导数
+		float J22 = 2.0f * DeltaY_Right * (AxleHalfWidth * SinTheta) - 2.0f * DeltaZ_Right * (AxleHalfWidth * CosTheta);
+
+		// 矩阵行列式
+		float Determinant = (J11 * J22) - (J12 * J21);
+
+		// 如果遭遇数学奇点，说明姿态崩溃，停止修正
+		if (FMath::Abs(Determinant) < KINDA_SMALL_NUMBER)
+		{
+			break;
+		}
+
+		// 克莱姆法则求解增量
+		float StepCenterZ = (J22 * Residual_Left - J12 * Residual_Right) / Determinant;
+		float StepRollAngle = (-J21 * Residual_Left + J11 * Residual_Right) / Determinant;
+
+		CurrentAxleCenterZ -= StepCenterZ;
+		CurrentRollAngle -= StepRollAngle;
+
+		// 收敛判断
+		if (FMath::Abs(StepCenterZ) < SMALL_NUMBER && FMath::Abs(StepRollAngle) < SMALL_NUMBER)
+		{
+			break;
+		}
+	}
+
+	OutAxleCenter = FVector3f(AxleCenterX, AxleCenterY, CurrentAxleCenterZ);
+	OutAxleRotation = FQuat4f(FVector3f::ForwardVector, CurrentRollAngle);
 }
 
 void FVehicleSuspensionSolver::PrepareSimulation(
@@ -1394,8 +1468,7 @@ void FVehicleSuspensionSolver::SolveLowerWishbone(
 
 	// Compute the position of the lower wishbone on the suspension plane
 	FVector2f LowerWishboneEnd2D = FVector2f(0.f);
-	const float EquivHitDistance = Ctx.CurrentExtensionRatio * Ctx.RayCastLength;
-	LowerWishboneEnd2D.X = RayCastStart2D.X - FMath::Max(0.f, EquivHitDistance);
+	LowerWishboneEnd2D.X = RayCastStart2D.X - FMath::Max(0.f, Ctx.CurrentExtensionRatio * Ctx.RayCastLength);
 	float SqrDist = FMath::Square(LowerArmLength) - FMath::Square(LowerWishboneEnd2D.X);
 	LowerWishboneEnd2D.Y = FMath::Sqrt(FMath::Max(0.f, SqrDist));
 	FVector3f LowerWishboneEndLocal = Coord2DTo3D(LowerWishboneEnd2D, Ctx.WheelSideSign);
@@ -1608,58 +1681,35 @@ void FVehicleSuspensionSolver::ComputeSolidAxle(
 	FVehicleSuspensionSimContext& Ctx,
 	const float WheelRadius,
 	const FVehicleSuspensionKinematicsConfig& Config,
-	const float TrackWidth,
-	const FVector ThisWheelHitWorldLocation,
-	const FVector OtherWheelHitWorldLocation)
+	const float AxleHalfWidth,
+	const FVector3f& AxleChassisCenter,
+	const FQuat4f& AxleChassisRotation)
 {
-	FVector AxleCenterWorld = (ThisWheelHitWorldLocation + OtherWheelHitWorldLocation) * 0.5f;
-	FVector AxleDirectionWorld = (ThisWheelHitWorldLocation - OtherWheelHitWorldLocation).GetSafeNormal();
-	AxleDirectionWorld *= Ctx.WheelSideSign;
-
-	FVector3f AxleCenterChassis = (FVector3f)Ctx.ChassisWorldTransform.InverseTransformPositionNoScale(AxleCenterWorld);
-	AxleCenterChassis.Y = 0.f;
-	FVector3f AxleDirectionChassis = (FVector3f)Ctx.ChassisWorldTransform.InverseTransformVectorNoScale(AxleDirectionWorld);
-
-	// 1. 获取下球头（车桥末端的主销点）的底盘局部坐标
-	const float BallJointHalfWidth = TrackWidth * 0.5f - Config.HubOffsetFromLowerJoint.Y;
-	Ctx.LowerBallJointChassisLocation = AxleCenterChassis + AxleDirectionChassis * BallJointHalfWidth * Ctx.WheelSideSign;
-
-	// 3. 计算车桥的侧倾旋转 (Roll)
-	FVector3f DefaultRight = FVector3f(0.f, 1.f, 0.f);
-	FQuat4f AxleRollRotation = FQuat4f::FindBetweenNormals(DefaultRight, AxleDirectionChassis);
-
-	// 4. 计算转向轴 (Steer Axis / Kingpin)
-	FVector3f ForwardChassis = Ctx.WheelCompToChassisTransform.GetRotation().GetForwardVector();
-	Ctx.SteerAxisChassisDirection = FVector3f::CrossProduct(ForwardChassis, AxleDirectionChassis).GetSafeNormal();
+	// 4. 转向轴 (Steer Axis / Kingpin)
+	FVector3f DefaultForward = FVector3f(1.f, 0.f, 0.f);
+	FVector3f AxleDirectionChassis = AxleChassisRotation.RotateVector(FVector3f::RightVector);
+	Ctx.LowerBallJointChassisLocation = AxleChassisCenter + AxleDirectionChassis * AxleHalfWidth * Ctx.WheelSideSign;
+	Ctx.SteerAxisChassisDirection = FVector3f::CrossProduct(DefaultForward, AxleDirectionChassis).GetSafeNormal();
 
 	// 5. 应用转向角
 	FQuat4f SteeringBiasRotation = FQuat4f(Ctx.SteerAxisChassisDirection, FMath::DegreesToRadians(Ctx.SteeringAngle));
 
-	// 6. 最终的 Hub 旋转 = 转向旋转 * 车桥侧倾旋转
-	FQuat4f HubChassisRot = SteeringBiasRotation * AxleRollRotation;
+	// 6. 组合 Hub 旋转
+	FQuat4f HubChassisRot = SteeringBiasRotation * AxleChassisRotation;
 	Ctx.HubChassisTransform.SetRotation(HubChassisRot);
 
-	// 7. 计算 Hub Offset 并应用
+	// 7. 偏移到轮心
 	FVector3f HubOffset = Config.HubOffsetFromLowerJoint;
 	HubOffset.Y *= Ctx.WheelSideSign;
 	Ctx.HubOffsetFromLowerJointChassis = HubChassisRot.RotateVector(HubOffset);
 
-	// 8. 得到最终的车轮中心位置
 	Ctx.HubChassisTransform.SetLocation(Ctx.LowerBallJointChassisLocation + Ctx.HubOffsetFromLowerJointChassis);
 
-	// 9. 算出世界空间的 Right Vector 和 Hub Location 供后续物理受力和渲染使用
+	// 8. 缓存世界空间向量与减震器受力方向
 	FVector3f WheelChassisRightVec = Ctx.HubChassisTransform.GetRotation().GetRightVector();
 	Ctx.WheelWorldRightVector = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)WheelChassisRightVec);
-
 	Ctx.HubWorldLocation = Ctx.ChassisWorldTransform.TransformPositionNoScale((FVector)Ctx.HubChassisTransform.GetLocation());
-
-	// 10. 计算减震器方向（用于算弹簧力）
 	Ctx.StrutChassisDirection = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).GetSafeNormal();
-
-	// 11. 反推减震器长度
-	float Absolute3DDistance = (Ctx.TopMountChassisLocation - Ctx.LowerBallJointChassisLocation).Size();
-	Ctx.StrutCurrentLength = FMath::Clamp(Absolute3DDistance - Config.MinStrutLength, 0.f, Config.Stroke);
-	Ctx.CurrentExtensionRatio = Ctx.StrutCurrentLength / Config.Stroke;
 }
 
 bool FVehicleSuspensionSolver::Solve2DLineIntersection(
