@@ -2236,8 +2236,7 @@ void FVehicleSuspensionSolver::ComputeSuspensionForce(
 	float FullPreloadAlongSpring = SpringConfig.SpringPreload * MotionRatio;
 	float StrutProjOnNormal = FVector::DotProduct(Ctx.StrutWorldDirection, Ctx.HitResult.Normal);
 	float RawPreloadAlongNormal = StrutProjOnNormal * FullPreloadAlongSpring;
-	float ImpulseScale = FMath::Clamp(FMath::Abs(CompressionRatio * 10.f), 0.f, 1.f);
-	float MaxPreloadAlongNormal = ForceToCancelOutSprungWeight - ImpulseAlongNormal * DeltaTimeInv * ImpulseScale - Ctx.ForceAlongImpactNormal;
+	float MaxPreloadAlongNormal = ForceToCancelOutSprungWeight - ImpulseAlongNormal * DeltaTimeInv;
 	float ValidPreloadAlongNormal = FMath::Max(0.f, FMath::Min(MaxPreloadAlongNormal * ConstraintScale, RawPreloadAlongNormal));
 
 	Ctx.ForceAlongImpactNormal += ValidPreloadAlongNormal;
