@@ -380,18 +380,32 @@ struct KINETIFORGE_API FAutoGearboxConfig
 	int32 MaxDownShiftSteps = 2;
 
 	/*
-	* this decides how aggressive the auto gearbox could be. larger number makes the auto gearbox more aggressive.
+	* At which RPM (normalized) the gearbox will shift up.
+	* This should be greater than DownShiftRPM.
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "0.99"))
-	float AutoGearboxShiftFactor = 0.95;
+	float UpShiftRPM = 0.95f;
 
 	/*
-	* this also decides how aggressive the auto gearbox is. 
-	* Normally, larger throttle input causes more aggressive auto gearbox. 
-	* But if the curve is set, the throttle input will be mapped to this curve.
+	* At which RPM (normalized) the gearbox will shift down.
+	* This should be smaller than UpShiftRPM
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "0.99"))
+	float DownShiftRPM = 0.9f;
+
+	/*
+	* This curve scales the UpShiftRPM.
+	* The input will be Max(Throttle, Brake).
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ToolTip = ""))
-	UCurveFloat* AutoGearboxShiftFactorCurve = nullptr;
+	UCurveFloat* UpShiftRPMCurve = nullptr;
+
+	/*
+	* This curve scales the DownShiftRPM.
+	* The input will be Max(Throttle, Brake).
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ToolTip = ""))
+	UCurveFloat* DownShiftRPMCurve = nullptr;
 };
 
 /**************************DIFFERENTIAL*****************************/

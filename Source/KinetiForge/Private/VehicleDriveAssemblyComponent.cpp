@@ -50,14 +50,25 @@ UVehicleDriveAssemblyComponent::UVehicleDriveAssemblyComponent()
 		}
 	}
 
-	if (!AutoGearboxConfig.AutoGearboxShiftFactorCurve)
+	if (!AutoGearboxConfig.UpShiftRPMCurve)
 	{
 		static ConstructorHelpers::FObjectFinder<UCurveFloat> DefaultAutoGearboxInputCurveObj(
 			TEXT("/Script/Engine.CurveFloat'/KinetiForge/DefaultConfigs/Curves/DefaultAutoGearboxCurve.DefaultAutoGearboxCurve'")
 		);
 		if (DefaultAutoGearboxInputCurveObj.Succeeded())
 		{
-			AutoGearboxConfig.AutoGearboxShiftFactorCurve = DefaultAutoGearboxInputCurveObj.Object;
+			AutoGearboxConfig.UpShiftRPMCurve = DefaultAutoGearboxInputCurveObj.Object;
+		}
+	}
+
+	if (!AutoGearboxConfig.DownShiftRPMCurve)
+	{
+		static ConstructorHelpers::FObjectFinder<UCurveFloat> DefaultAutoGearboxInputCurveObj(
+			TEXT("/Script/Engine.CurveFloat'/KinetiForge/DefaultConfigs/Curves/DefaultAutoGearboxCurve.DefaultAutoGearboxCurve'")
+		);
+		if (DefaultAutoGearboxInputCurveObj.Succeeded())
+		{
+			AutoGearboxConfig.DownShiftRPMCurve = DefaultAutoGearboxInputCurveObj.Object;
 		}
 	}
 }
@@ -413,23 +424,39 @@ void UVehicleDriveAssemblyComponent::UpdateAutomaticGearbox(float InDeltaTime)
 	//如果急刹车时，也希望尽早降档，发动机协助制动
 	float Input = FMath::Max(InputValues.Final.Throttle, InputValues.Final.Brake);
 
-	float ShiftFactor = AutoGearboxConfig.AutoGearboxShiftFactor;
+	float UpShiftTime = AutoGearboxConfig.UpShiftRPM;
+	float DownShiftTime = AutoGearboxConfig.DownShiftRPM;
+
 	//in sport mode, shift as late as it can
 	if (!AutoGearboxConfig.bSportMode)
 	{
-		if (AutoGearboxConfig.AutoGearboxShiftFactorCurve)
+		if (AutoGearboxConfig.UpShiftRPMCurve)
 		{
-			ShiftFactor *= AutoGearboxConfig.AutoGearboxShiftFactorCurve->GetFloatValue(Input);
+			UpShiftTime *= AutoGearboxConfig.UpShiftRPMCurve->GetFloatValue(Input);
 		}
 		else
 		{
-			ShiftFactor *= Input;
+			UpShiftTime *= Input;
+		}
+		if (AutoGearboxConfig.DownShiftRPMCurve)
+		{
+			DownShiftTime *= AutoGearboxConfig.DownShiftRPMCurve->GetFloatValue(Input);
+		}
+		else
+		{
+			DownShiftTime *= Input;
 		}
 	}
 
+	// Upshift time should be greater than downshift
+	DownShiftTime = FMath::Min(DownShiftTime, UpShiftTime);
+
 	// should shift down if rpm is too low
-	float MinShiftUpFactor = UVehicleUtilities::SafeDivide(EngineRaw->GetIdleRPM(), EngineRaw->GetMaxRPM());
-	ShiftFactor = FMath::Max(MinShiftUpFactor, ShiftFactor);
+	float MinDownShiftTime = UVehicleUtilities::SafeDivide(EngineRaw->GetIdleRPM(), EngineRaw->GetMaxRPM());
+	DownShiftTime = FMath::Max(MinDownShiftTime, DownShiftTime);
+
+	// Upshift time should be greater than downshift
+	UpShiftTime = FMath::Max(UpShiftTime, DownShiftTime);
 
 	int32 UnsignedCurrentGear = FMath::Abs(GearboxRaw->GetCurrentGear());
 	int32 StartGear = FMath::Max(UnsignedCurrentGear - AutoGearboxConfig.MaxDownShiftSteps, 1);
@@ -439,21 +466,28 @@ void UVehicleDriveAssemblyComponent::UpdateAutomaticGearbox(float InDeltaTime)
 	int32 TargetGear = StartGear;
 	float UnsignedSpeed = FMath::Abs(LocalLinearVelocity.X);
 
-	//search for target gear
+	// just loop through all possible gears (O(N))
+	// there're just a few gears, we don't need any fancy algorithm
 	for (int i = EndGear; i > StartGear; i--)
 	{
-		if (UnsignedSpeed > ShiftFactor * SpeedRangeOfEachGear[i - 1].Y)
+		const bool GearingDown = UnsignedCurrentGear > i;
+		const float ShiftTime = GearingDown ? DownShiftTime : UpShiftTime;
+
+		if (UnsignedSpeed > ShiftTime * SpeedRangeOfEachGear[i - 1].Y)
 		{
 			TargetGear = i;
 			break;
 		}
 	}
 
-	bool GearingUp = FMath::Abs(GearboxRaw->GetCurrentGear()) < TargetGear;
+	bool GearingUp = UnsignedCurrentGear < TargetGear;
 
 	//check sign
 	if (LocalLinearVelocity.X < 0)TargetGear = -TargetGear;
 
+	// 1. 目标档位不等于当前档位才能换挡
+	// 2. 目标档位和当前档位方向相同才能换挡
+	// 3. 松开刹车时才能升档
 	if (GearboxRaw->GetCurrentGear() != TargetGear
 		&& TargetGear * GearboxRaw->GetCurrentGear() > 0
 		&& !(GearingUp && InputValues.Final.Brake > SMALL_NUMBER))
