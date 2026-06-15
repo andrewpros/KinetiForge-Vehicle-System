@@ -509,3 +509,52 @@ public:
         CopyFromRichCurve(RichCurve, SelectedTimeInterval);
     }
 };
+
+USTRUCT()
+struct KINETIFORGE_API FVehicleChassisSimState
+{
+    GENERATED_BODY()
+
+    float Mass = 1.f;
+    Chaos::FVec3 CoMWorldLocation = Chaos::FVec3(0.f);
+    Chaos::FVec3 LinearVelocity = Chaos::FVec3(0.f);
+    Chaos::FVec3 AngularVelocity = Chaos::FVec3(0.f);
+    Chaos::FVec3 LinearAcceleration = Chaos::FVec3(0.f);
+    Chaos::FVec3 AngularAcceleration = Chaos::FVec3(0.f);
+    Chaos::FMatrix33 WorldInvInertiaTensor = Chaos::FMatrix33(
+        1.f, 0.f, 0.f,
+        0.f, 1.f, 0.f,
+        0.f, 0.f, 1.f
+    );
+
+    void FetchChassisPhysicsState(Chaos::FRigidBodyHandle_Internal* ChassisHandle, float DeltaTime)
+    {
+        if (!ChassisHandle || !ChassisHandle->CanTreatAsKinematic()) return;
+
+        const bool bIsRigid = ChassisHandle->CanTreatAsRigid();
+
+        CoMWorldLocation = bIsRigid ?
+            Chaos::FParticleUtilitiesGT::GetCoMWorldPosition(ChassisHandle) :
+            Chaos::FParticleUtilitiesGT::GetActorWorldTransform(ChassisHandle).GetTranslation();
+
+        Chaos::FVec3 LastLinearVelocity = LinearVelocity;
+        Chaos::FVec3 LastAngularVelocity = AngularVelocity;
+        LinearVelocity = ChassisHandle->V();
+        AngularVelocity = ChassisHandle->W();
+        Mass = ChassisHandle->M();
+
+        WorldInvInertiaTensor = Chaos::FParticleUtilitiesGT::GetWorldInvInertia(ChassisHandle);
+
+        if (DeltaTime > UE_SMALL_NUMBER)
+        {
+            float DtInv = 1.f / DeltaTime;
+            LinearAcceleration = (LinearVelocity - LastLinearVelocity) * DtInv;
+            AngularAcceleration = (AngularVelocity - LastAngularVelocity) * DtInv;
+        }
+        else
+        {
+            LinearAcceleration = Chaos::FVec3(0.f);
+            AngularAcceleration = Chaos::FVec3(0.f);
+        }
+    }
+};

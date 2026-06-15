@@ -29,8 +29,8 @@ public:
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
+		const FVehicleChassisSimState& ChassisState,
 		const UWorld* CurrentWorld,
-		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
 		const float InDeltaTime,
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
@@ -44,6 +44,7 @@ public:
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& ComponentRelativeTransform,
 		const FTransform& AsyncChassisWorldTransform,
+		const FVehicleChassisSimState& ChassisState,
 		const UWorld* CurrentWorld,
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
@@ -55,7 +56,7 @@ public:
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
 		const FVehicleSuspensionSpringConfig& SpringConfig,
 		const FTransform& AsyncChassisWorldTransform,
-		Chaos::FRigidBodyHandle_Internal* const ChassisHandle,
+		const FVehicleChassisSimState& ChassisState,
 		float InDeltaTime,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,
@@ -219,6 +220,7 @@ private:
 	);
 	static void UpdateStrutLength(
 		FVehicleSuspensionSimContext& Ctx,
+		const FVehicleChassisSimState& ChassisState,
 		const float WheelRadius,
 		const float WheelInertia,
 		const FVehicleSuspensionKinematicsConfig& KineConfig,
@@ -357,17 +359,13 @@ private:
 	);
 	static void ComputeAntiPitchRollGeometry(
 		FVehicleSuspensionSimContext& Ctx,
-		Chaos::FRigidBodyHandle_Internal* ChassisHandle,
+		const FVehicleChassisSimState& ChassisState,
 		const bool bOnlyFromLUTs, // for solid axles
 		const EVehicleIndependentSuspensionType SuspensionType,
 		const float WheelRadius,
 		const FVehicleSuspensionCachedLUTs& LUTs,
 		const FTransform& AsyncChassisWorldTransform,
 		const FVector3f& TireForce
-	);
-	static void FetchChassisPhysicsState(
-		Chaos::FRigidBodyHandle_Internal* ChassisHandle,
-		FVehicleChassisSimState& OutState
 	);
 	static void CalculateImpactPointWorldVelocity(
 		FVehicleSuspensionSimContext& Ctx,

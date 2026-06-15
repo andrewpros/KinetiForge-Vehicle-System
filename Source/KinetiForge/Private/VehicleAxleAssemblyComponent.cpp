@@ -251,8 +251,8 @@ void UVehicleAxleAssemblyComponent::PreStepSolidAxleSuspension(
 	float HubZ_R = WheelR->GetHubChassisLocation().Z;
 	float HubZ_L = WheelL->GetHubChassisLocation().Z;
 
-	WheelL->StartPreStepSolidAxleSuspension(Ctx_L, SteerAngleLeft, ActiveSwaybarStiffness, HubZ_R);
-	WheelR->StartPreStepSolidAxleSuspension(Ctx_R, SteerAngleRight, ActiveSwaybarStiffness, HubZ_L);
+	WheelL->StartPreStepSolidAxleSuspension(Ctx_L, InMacroDeltaTime, SteerAngleLeft, ActiveSwaybarStiffness, HubZ_R);
+	WheelR->StartPreStepSolidAxleSuspension(Ctx_R, InMacroDeltaTime, SteerAngleRight, ActiveSwaybarStiffness, HubZ_L);
 
 	float TrackWidth = GetTrackWidth();
 	float AxleHalfWidth = (
