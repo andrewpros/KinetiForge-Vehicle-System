@@ -244,22 +244,6 @@ struct KINETIFORGE_API FVehicleSuspensionHitResult
 	FQuat4f TraceRot = FQuat4f(0.f);
 };
 
-USTRUCT()
-struct KINETIFORGE_API FVehicleChassisSimState
-{
-	GENERATED_BODY()
-
-	float Mass = 1.f;
-	Chaos::FVec3 CoMWorldLocation = Chaos::FVec3(0.f);
-	Chaos::FVec3 LinearVelocity = Chaos::FVec3(0.f);
-	Chaos::FVec3 AngularVelocity = Chaos::FVec3(0.f);
-	Chaos::FMatrix33 WorldInvInertiaTensor = Chaos::FMatrix33(
-		1.f, 0.f, 0.f,
-		0.f, 1.f, 0.f,
-		0.f, 0.f, 1.f
-	);
-};
-
 USTRUCT(BlueprintType, meta = (ToolTip = "suspension state in simulation"))
 struct KINETIFORGE_API FVehicleSuspensionSimState
 {

@@ -116,6 +116,7 @@ protected:
 
 	FTransform ChassisAsyncWorldTransform;
 	FTransform3f DesignedHubLocalTransform;
+	FVehicleChassisSimState ChassisState;
 
 	//anim
 	FVector3f PrevLowerBallJointChassisLocation;
@@ -143,6 +144,7 @@ public:
 		const float OtherHubChassisZ);
 	void StartPreStepSolidAxleSuspension(
 		FVehicleSuspensionSimContext& Ctx,
+		const float InMacroDeltaTime,
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ);
@@ -343,6 +345,7 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
 	void StartUpdateSolidAxlePhysics(
+		const float InPhysicsDeltaTime,
 		const float InSteeringAngle,
 		const float ActiveSwaybarStiffness,
 		const float OtherHubChassisZ,

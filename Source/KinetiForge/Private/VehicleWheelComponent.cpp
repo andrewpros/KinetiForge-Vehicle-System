@@ -278,6 +278,8 @@ void UVehicleWheelComponent::PreStepIndependentSuspension(
 	ChassisAsyncWorldTransform = Chaos::FParticleUtilitiesGT::GetActorWorldTransform(ChassisHandle);
 	if (!ChassisAsyncWorldTransform.IsRotationNormalized()) ChassisAsyncWorldTransform.NormalizeRotation();
 
+	ChassisState.FetchChassisPhysicsState(ChassisHandle, InMacroDeltaTime);
+
 	Suspension.UpdateSuspension(
 		WheelConfig.Radius,
 		WheelConfig.Width,
@@ -287,8 +289,8 @@ void UVehicleWheelComponent::PreStepIndependentSuspension(
 		SuspensionSpringConfig,
 		GetRelativeTransform(),
 		ChassisAsyncWorldTransform,
+		ChassisState,
 		GetWorld(),
-		ChassisHandle,
 		InMacroDeltaTime,
 		InSteeringAngle,
 		ActiveSwaybarStiffness,
@@ -297,6 +299,7 @@ void UVehicleWheelComponent::PreStepIndependentSuspension(
 
 void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 	FVehicleSuspensionSimContext& Ctx,
+	const float InMacroDeltaTime,
 	const float InSteeringAngle,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ)
@@ -313,6 +316,8 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 
 	ChassisAsyncWorldTransform = Chaos::FParticleUtilitiesGT::GetActorWorldTransform(ChassisHandle);
 
+	ChassisState.FetchChassisPhysicsState(ChassisHandle, InMacroDeltaTime);
+
 	Suspension.StartUpdateSolidAxle(
 		WheelConfig.Radius,
 		WheelConfig.Width,
@@ -321,6 +326,7 @@ void UVehicleWheelComponent::StartPreStepSolidAxleSuspension(
 		SuspensionSpringConfig,
 		GetRelativeTransform(),
 		ChassisAsyncWorldTransform,
+		ChassisState,
 		GetWorld(),
 		InSteeringAngle,
 		ActiveSwaybarStiffness,
@@ -337,20 +343,12 @@ void UVehicleWheelComponent::FinalizePreStepSolidAxleSuspension(
 	const FVector3f& AxleChassisCenter,
 	const FQuat4f& AxleChassisRotation)
 {
-	Chaos::FRigidBodyHandle_Internal* const ChassisHandle = UVehicleUtilities::GetInternalHandle(Chassis.Get());
-
-	if (!ChassisHandle)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("WheelPhysics: No Valid Chassis!!!"));
-		return;
-	}
-
 	Suspension.FinalizeUpdateSolidAxle(
 		WheelConfig.Radius,
 		SuspensionKinematicsConfig,
 		SuspensionSpringConfig,
 		ChassisAsyncWorldTransform,
-		ChassisHandle,
+		ChassisState,
 		InMacroDeltaTime,
 		ActiveSwaybarStiffness,
 		OtherHubChassisZ, 
@@ -723,6 +721,7 @@ bool UVehicleWheelComponent::CheckHasBeenMoved()
 }
 
 void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
+	const float InPhysicsDeltaTime,
 	const float InSteeringAngle,
 	const float ActiveSwaybarStiffness,
 	const float OtherHubChassisZ,
@@ -733,6 +732,7 @@ void UVehicleWheelComponent::StartUpdateSolidAxlePhysics(
 
 	StartPreStepSolidAxleSuspension(
 		Ctx,
+		InPhysicsDeltaTime,
 		InSteeringAngle,
 		ActiveSwaybarStiffness,
 		OtherHubChassisZ
