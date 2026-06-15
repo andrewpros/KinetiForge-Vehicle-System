@@ -38,8 +38,10 @@ void UVehicleEngineComponent::BeginPlay()
 	// reset rev-limiter
 	State.RevLimiterTimer = NAConfig.RevLimiterTime;
 
+#if WITH_EDITOR
 	TimeSinceLastConfigSync = FMath::FRandRange(0.f, ConfigSyncInterval);
 	TimeSinceLastConfigSync += ConfigSyncInterval;
+#endif
 }
 
 
