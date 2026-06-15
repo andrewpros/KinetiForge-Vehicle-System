@@ -173,7 +173,8 @@ void UVehicleAxleAssemblyComponent::UpdateLinearVelocity(
 	UVehicleWheelComponent* WheelL, 
 	UVehicleWheelComponent* WheelR)
 {
-	FVector3f LeftWorldVel, RightWorldVel = FVector3f(0.f);
+	FVector3f LeftWorldVel = FVector3f(0.f);
+	FVector3f RightWorldVel = FVector3f(0.f);
 	FQuat4f ChassisRot = FQuat4f();
 	if (WheelL)
 	{
