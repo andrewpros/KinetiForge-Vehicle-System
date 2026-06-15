@@ -384,14 +384,14 @@ struct KINETIFORGE_API FAutoGearboxConfig
 	* This should be greater than DownShiftRPM.
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "0.99"))
-	float UpShiftRPM = 0.95;
+	float UpShiftRPM = 0.95f;
 
 	/*
 	* At which RPM (normalized) the gearbox will shift down.
 	* This should be smaller than UpShiftRPM
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "0.99"))
-	float DownShiftRPM = 0.95;
+	float DownShiftRPM = 0.9f;
 
 	/*
 	* This curve scales the UpShiftRPM.
