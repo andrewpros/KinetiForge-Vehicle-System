@@ -671,10 +671,13 @@ void UVehicleDriveAssemblyComponent::MultiCastShiftToTargetGear_Implementation(i
 
 void UVehicleDriveAssemblyComponent::OnRep_ServerCurrentGear()
 {
-	//make sure the current gear equals to server current gear
-	if (Gearbox->GetCurrentGear() != ServerCurrentGear)
+	if (Gearbox.IsValid())
 	{
-		Gearbox->ShiftToTargetGear(ServerCurrentGear, true);
+		//make sure the current gear equals to server current gear
+		if (Gearbox->GetCurrentGear() != ServerCurrentGear)
+		{
+			Gearbox->ShiftToTargetGear(ServerCurrentGear, true);
+		}
 	}
 }
 
