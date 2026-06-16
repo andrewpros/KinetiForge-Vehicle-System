@@ -900,15 +900,12 @@ void FVehicleSuspensionSolver::SolveSolidAxlePosture(
 		// 矩阵行列式
 		float Determinant = (J11 * J22) - (J12 * J21);
 
-		// 如果遭遇数学奇点，说明姿态崩溃，停止修正
-		if (FMath::Abs(Determinant) < KINDA_SMALL_NUMBER)
-		{
-			break;
-		}
+		// 如果遭遇数学奇点 Determinant = 0，说明姿态崩溃，SafeDivide默认返回0，会清除StepCenterZ和StepRollAngle
+		float DeterminantInv = UVehicleUtilities::SafeDivide(1.f, Determinant);
 
 		// 克莱姆法则求解增量
-		float StepCenterZ = (J22 * Residual_Left - J12 * Residual_Right) / Determinant;
-		float StepRollAngle = (-J21 * Residual_Left + J11 * Residual_Right) / Determinant;
+		float StepCenterZ = (J22 * Residual_Left - J12 * Residual_Right) * DeterminantInv;
+		float StepRollAngle = (-J21 * Residual_Left + J11 * Residual_Right) * DeterminantInv;
 
 		CurrentAxleCenterZ -= StepCenterZ;
 		CurrentRollAngle -= StepRollAngle;
@@ -1060,7 +1057,7 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 {
 	const float HitDistanceNoBias = FMath::Max(0.f, Ctx.HitDistance - WheelRadius);
 
-	const float MaxExtension = FMath::Clamp(HitDistanceNoBias / Ctx.RayCastLength, 0.f, 1.f);
+	const float MaxExtension = FMath::Clamp(UVehicleUtilities::SafeDivide(HitDistanceNoBias, Ctx.RayCastLength), 0.f, 1.f);
 	const float MaxCurrentLength = MaxExtension * KineConfig.Stroke;
 	const float StrutLastLength = Ctx.StrutCurrentLength;
 	Ctx.StrutLastLength = StrutLastLength;
@@ -1076,9 +1073,9 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 		const float SubDt = Ctx.PhysicsDeltaTime / (float)Substeps;
 
 		// integrate unsprung mass position
-		const float EstimatedWheelMass = (2.0f * WheelInertia) / (WheelRadius * WheelRadius * 0.0001f); // cm to m
+		const float EstimatedWheelMass = UVehicleUtilities::SafeDivide(2.0f * WheelInertia, WheelRadius * WheelRadius * 0.0001f); // cm to m
 		Ctx.VirtualUnsprungMass = EstimatedWheelMass + KineConfig.SuspensionAndBrakeMass;
-		const float VirtualUnsprungMassInv = 1.f / Ctx.VirtualUnsprungMass;
+		const float VirtualUnsprungMassInv = UVehicleUtilities::SafeDivide(1.f, Ctx.VirtualUnsprungMass);
 		Ctx.StrutWorldDirection = Ctx.ChassisWorldTransform.TransformVectorNoScale((FVector)Ctx.StrutChassisDirection);
 		const float GravityForce = Ctx.VirtualUnsprungMass * FMath::Abs(Ctx.WorldGravityZ) * FMath::Abs(Ctx.StrutWorldDirection.Z);
 
@@ -1188,7 +1185,7 @@ void FVehicleSuspensionSolver::UpdateStrutLength(
 
 		Ctx.StrutCurrentLength = CurrentLength;
 		Ctx.StrutCurrentVelocity = (CurrentLength - StrutLastLength) * MacroDtInv;
-		Ctx.CurrentExtensionRatio = CurrentLength / KineConfig.Stroke;
+		Ctx.CurrentExtensionRatio = UVehicleUtilities::SafeDivide(CurrentLength, KineConfig.Stroke);
 	}
 	else
 	{
@@ -1626,10 +1623,10 @@ bool FVehicleSuspensionSolver::SolveUpperWishbone(
 		return ApplyGracefulDegradation();
 
 	float UpperArmSq = FMath::Square(UpperArmLength);
-	float a = (UpperArmSq - rpSq + D * D) / (2.0f * D);
+	float a = UVehicleUtilities::SafeDivide(UpperArmSq - rpSq + D * D, 2.0f * D);
 	float h = FMath::Sqrt(FMath::Max(0.0f, UpperArmSq - a * a));
 
-	FVector3f VdiffDir = Vdiff / D;
+	FVector3f VdiffDir = UVehicleUtilities::SafeDivide(Vdiff, D);
 	FVector3f Pmid = UpperPivotPos + a * VdiffDir;
 	FVector3f DirPerp = FVector3f::CrossProduct(N, VdiffDir);
 
@@ -1751,7 +1748,7 @@ bool FVehicleSuspensionSolver::Solve2DLineIntersection(
 	float Denom = (P1.X - P2.X) * (P3.Y - P4.Y) - (P1.Y - P2.Y) * (P3.X - P4.X);
 
 	// if parallel
-	if (FMath::Abs(Denom) < 0.001f)
+	if (!(FMath::Abs(Denom) > SMALL_NUMBER))
 	{
 		return false;
 	}
@@ -1785,19 +1782,10 @@ float FVehicleSuspensionSolver::SolveSwingArmSlope2D(
 			Slope = (IC.Y - ContactPatch.Y) / DeltaX;
 		}
 	}
-	else
-	{
-		// use slope of lower wishbone if parallel
-		DeltaX = LowerInner.X - LowerOuter.X;
-		if (FMath::Abs(DeltaX) > 0.001f)
-		{
-			Slope = (LowerInner.Y - LowerOuter.Y) / DeltaX;
-		}
-	}
 	return Slope;
 }
 
-float FVehicleSuspensionSolver::CalculateMacPhersonAntiPitchScale(
+float FVehicleSuspensionSolver::CalculateMacPhersonIntersectionSlope(
 	const FVector3f& TopMount, const FVector3f& StrutDir,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
 	const FVector3f& HubLocation, float WheelRadius)
@@ -1839,7 +1827,7 @@ float FVehicleSuspensionSolver::CalculateMacPhersonRollCenterHeight(
 	return Contact2D.Y - Slope * Contact2D.X;
 }
 
-float FVehicleSuspensionSolver::CalculateDoubleWishboneAntiPitchScale(
+float FVehicleSuspensionSolver::CalculateDoubleWishboneIntersectionSlope(
 	const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
 	const FVector3f& HubLocation, float WheelRadius)
@@ -1928,7 +1916,7 @@ void FVehicleSuspensionSolver::ComputeAntiPitchRollGeometry(
 		case EVehicleIndependentSuspensionType::StraightLine:
 			break;
 		case EVehicleIndependentSuspensionType::Macpherson:
-			GeomSlope = CalculateMacPhersonAntiPitchScale(
+			GeomSlope = CalculateMacPhersonIntersectionSlope(
 				Ctx.TopMountChassisLocation,
 				Ctx.StrutChassisDirection,
 				Ctx.LowerPivotChassisLocation,
@@ -1951,7 +1939,7 @@ void FVehicleSuspensionSolver::ComputeAntiPitchRollGeometry(
 			GeomAntiRoll = UVehicleUtilities::SafeDivide(TrueRCHeight, TrueCOMHeight);
 			break;
 		case EVehicleIndependentSuspensionType::DoubleWishbone:
-			GeomSlope = CalculateDoubleWishboneAntiPitchScale(
+			GeomSlope = CalculateDoubleWishboneIntersectionSlope(
 				Ctx.UpperPivotChassisLocation,
 				Ctx.UpperBallJointChassisLocation,
 				Ctx.UpperWishboneChassisAxis,
@@ -2143,15 +2131,15 @@ float FVehicleSuspensionSolver::GetCriticalDamping(
 	const float SpringStiffness,
 	const float StaticSprungMass)
 {
-	if (StaticSprungMass <= 0.f)
-	{
-		//UE_LOG(LogTemp, Warning, TEXT("VehicleSuspensionSolver: SprungMass not valid!"));
-		return 0.1f * SpringStiffness;
-	}
-	else
+	if (StaticSprungMass > SMALL_NUMBER)
 	{
 		float NaturalFrequency = FMath::Sqrt(SpringStiffness * 100.f / StaticSprungMass);
 		return 0.02f * StaticSprungMass * NaturalFrequency;
+	}
+	else
+	{
+		//UE_LOG(LogTemp, Warning, TEXT("VehicleSuspensionSolver: SprungMass not valid!"));
+		return 0.1f * SpringStiffness;
 	}
 }
 

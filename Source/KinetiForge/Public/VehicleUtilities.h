@@ -134,13 +134,13 @@ public:
     template<typename T>
     static FORCEINLINE T SafeDivide(const T& A, const T& B, const T DefaultValue = T(0))
     {
-        return FMath::IsNearlyZero(B) ? DefaultValue : A / B;
+        return FMath::Abs(B) > SMALL_NUMBER ? A / B : DefaultValue;
     }
 
     template<typename T>
     static FORCEINLINE UE::Math::TVector<T> SafeDivide(const UE::Math::TVector<T>& A, const float& B)
     {
-        return FMath::IsNearlyZero(B) ? UE::Math::TVector<T>(0.f) : A / B;
+        return FMath::Abs(B) > SMALL_NUMBER ? A / B : UE::Math::TVector<T>(0.f);
     }
 
     template<typename T>

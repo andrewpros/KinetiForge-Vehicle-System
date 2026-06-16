@@ -337,7 +337,7 @@ private:
 		const FVector2f& UpperInner, const FVector2f& UpperOuter,
 		const FVector2f& ContactPatch
 	);
-	static float CalculateMacPhersonAntiPitchScale(
+	static float CalculateMacPhersonIntersectionSlope(
 		const FVector3f& TopMount, const FVector3f& StrutDir,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
 		const FVector3f& HubLocation, float WheelRadius
@@ -347,7 +347,7 @@ private:
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
 		const FVector3f& HubLocation, float WheelRadius
 	);
-	static float CalculateDoubleWishboneAntiPitchScale(
+	static float CalculateDoubleWishboneIntersectionSlope(
 		const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
 		const FVector3f& HubLocation, float WheelRadius
