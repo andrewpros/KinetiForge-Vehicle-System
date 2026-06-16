@@ -3,7 +3,8 @@
 High-performance, modular vehicle physics system for Unreal Engine 5, fully implemented in C++ with real-time tunable parameters.
 
 * Demonstration videos:
-  - [Key features](https://www.bilibili.com/video/BV1HFnAzCEKU/)
+  - [Demonstration video (Jun. 2026 on YouTube)](https://www.youtube.com/watch?v=iipOBL2fKQ0/)
+  - [Demonstration video (Sep. 2025 on BiliBili)](https://www.bilibili.com/video/BV1HFnAzCEKU/)
   - [Installation guide](https://www.bilibili.com/video/BV1SxJkzPEcA)
   - [How to configure vehicles](https://www.bilibili.com/video/BV1h2JCzzEF3)
 
@@ -21,7 +22,8 @@ High-performance, modular vehicle physics system for Unreal Engine 5, fully impl
 - Supports: **Straight‑axle** (like a mountain bike fork), MacPherson, double wishbone, solid axle  
 - Suspension geometry is **fully solved in real time** – ideal for suspension tuning systems  
 - Caster / camber / toe changes affect tire forces correctly  
-- Anti‑dive / anti‑squat geometry naturally supported  
+- Anti‑dive / anti‑squat geometry supported  
+- Unsprung mass simulation (optional, and requires 120Hz Async Physics)
 - Lookup tables available for all but solid axle (for quick tuning without detailed linkage setup)  
 
 **Drivetrain (1D physics, implicit integration)**  
@@ -47,6 +49,10 @@ High-performance, modular vehicle physics system for Unreal Engine 5, fully impl
 **Electronics & Assistance**  
 - Basic traction control, ABS, automatic gearbox logic  
 - Open APIs for P1/P2/P3/P4 electric motors and ESP (not yet implemented)  
+
+**Aerodynamics**
+- A simple airfoil simulation
+- An aero volume that offers damping
 
 **Known Limitations**  
 - No camber thrust  
@@ -124,11 +130,6 @@ Detailed video tutorial: [How to configure vehicles](https://www.bilibili.com/vi
 
 ## 🏎️ Driving Feel & Tuning Tips
 
-- **No aerodynamics in this system** – If a high‑powered rear‑wheel drive car feels uncontrollable, it’s **not** your tuning fault.  
-  - Add **angular damping that increases with speed** (e.g., in the vehicle’s movement component).  
-  - Apply **downforce that grows with speed** (manually or via a simple blueprint curve).  
-  These two changes dramatically improve high‑speed stability and traction.
-
 - **Input smoothing matters** – The rate at which you apply steering and throttle has a huge impact on handling. Use input curves or low‑pass filters to avoid instant, jerky inputs.
 
 ---
@@ -172,7 +173,8 @@ MIT License
 - 支持：直轴式（如山地车前叉）、麦弗逊、双叉臂、整体桥  
 - 悬挂几何完全实时解算 → 完美支持悬挂改装系统  
 - Caster / Camber / Toe 变化会真实影响轮胎受力  
-- 自带抗俯仰/抗下沉几何特性  
+- 抗俯仰/抗下沉几何特性  
+- 簧下质量模拟（可选，需要120hz异步物理）
 - 除整体桥外，均可使用查表方式快速调参（无需详细连杆数据）  
 
 **传动系统**  
@@ -197,6 +199,10 @@ MIT License
 **电控与辅助**  
 - 基础的牵引力控制、ABS、自动变速箱逻辑  
 - 开放 P1/P2/P3/P4 电机 API 以及 ESP 预留接口（尚未实现）  
+
+**气动**
+- 简单的机翼模拟
+- AeroVolume组件可以提供额外气动阻尼
 
 **已知不足**  
 - 不支持 Camber Thrust  
@@ -276,11 +282,6 @@ MIT License
 ---
 
 🏎️ 驾驶手感调校技巧
-
-- **本系统未模拟空气动力学** – 如果大马力后驱车感觉很难开，**不是你调教得不好**。  
-  - 给车辆添加**随速度增大的角阻尼**（例如在 MovementComponent 中设置）。  
-  - 施加**随速度增大的下压力**（手动控制或简单的蓝图曲线）。  
-  这两项改动会极大改善高速稳定性和后轮牵引力。
 
 - **输入平滑很重要** – 转向和油门的施加速度对手感影响巨大。请使用输入曲线或低通滤波器，避免瞬间、跳跃式的输入变化。
 
