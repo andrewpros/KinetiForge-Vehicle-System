@@ -4,10 +4,15 @@ High-performance, modular vehicle physics system for Unreal Engine 5, fully impl
 
 * Demonstration videos:
   - [Demonstration video (Jun. 2026 on YouTube)](https://www.youtube.com/watch?v=iipOBL2fKQ0/)
-  - [Demonstration video (Sep. 2025 on BiliBili)](https://www.bilibili.com/video/BV1HFnAzCEKU/)
+  - [Demonstration video (Jun. 2026 on BiliBili)](https://www.bilibili.com/video/BV1HDjA69EGE/)
   - [Installation guide (on BiliBili)](https://www.bilibili.com/video/BV1SxJkzPEcA)
   - [How to configure vehicles (Jun. 2026 on YouTube)](https://youtu.be/pHuFyCRVlZM)
+  - [How to configure vehicles (Jun. 2026 on BiliBili)](https://www.bilibili.com/video/BV16DjA6XEQL/)
+
+* Legacy Videos:
+  - [Demonstration video (Sep. 2025 on BiliBili)](https://www.bilibili.com/video/BV1HFnAzCEKU/)
   - [How to configure vehicles (Sep. 2025 on BiliBili)](https://www.bilibili.com/video/BV1h2JCzzEF3)
+
 
 ---
 
