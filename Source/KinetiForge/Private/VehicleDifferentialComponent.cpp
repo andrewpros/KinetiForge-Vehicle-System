@@ -265,24 +265,22 @@ void UVehicleDifferentialComponent::GetOutputTorque(
 {
 	float OpenDiffTorque = 0.5 * Config.GearRatio * InTorque;
 
-	//prevent divided by 0
-	if (!InDeltaTime)
-	{
-		OutLeftTorque = OutRightTorque = OpenDiffTorque;
-		return;
-	}
-
 	float AverageAngularVelocity = 0.5 * (InLeftAngularVelocity + InRightAngularVelocity);
 	bool bIsDrive = (OpenDiffTorque * AverageAngularVelocity) >= 0.f;
 	float CurrentLockRatio = bIsDrive ? Config.DriveLockRatio : Config.CoastLockRatio;
 
 	//calculate the torque required for both sides to match the average angular velocity
-	float DeltaTimeInv = 1.f / InDeltaTime;
-	float LeftTorqueBias = (AverageAngularVelocity - InLeftAngularVelocity) * InLeftTotalInertia * DeltaTimeInv * CurrentLockRatio;
-	float RightTorqueBias = (AverageAngularVelocity - InRightAngularVelocity) * InRightTotalInertia * DeltaTimeInv * CurrentLockRatio;
 
-	OutLeftTorque = OpenDiffTorque + LeftTorqueBias;
-	OutRightTorque = OpenDiffTorque + RightTorqueBias;
+	float ReducedInertia = UVehicleUtilities::SafeDivide(
+		InLeftTotalInertia * InRightTotalInertia, InLeftTotalInertia + InRightTotalInertia);
+
+	float OmegaDiff = InLeftAngularVelocity - InRightAngularVelocity;
+
+	float MaxTransferTorque = UVehicleUtilities::SafeDivide(ReducedInertia * OmegaDiff, InDeltaTime);
+	float TransferTorque = MaxTransferTorque * CurrentLockRatio;
+
+	OutLeftTorque = OpenDiffTorque - TransferTorque;
+	OutRightTorque = OpenDiffTorque + TransferTorque;
 
 }
 
