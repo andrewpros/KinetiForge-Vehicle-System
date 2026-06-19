@@ -500,6 +500,7 @@ void UVehicleDriveAssemblyComponent::UpdateAutomaticGearbox(float InDeltaTime)
 //RPC
 void UVehicleDriveAssemblyComponent::ServerInputThrottle_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	InputValues.Raw.Throttle = InValue;
 	if (bDirectInput)
 	{
@@ -517,6 +518,7 @@ void UVehicleDriveAssemblyComponent::ServerInputThrottle_Implementation(float In
 
 void UVehicleDriveAssemblyComponent::MultiCastInputThrottle_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	APawn* p = Cast<APawn>(GetOwner());
 	if (p && !p->IsLocallyControlled() && !p->HasAuthority())
 	{
@@ -537,6 +539,7 @@ void UVehicleDriveAssemblyComponent::MultiCastInputThrottle_Implementation(float
 
 void UVehicleDriveAssemblyComponent::ServerInputBrake_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	InputValues.Raw.Brake = InValue;
 	if (bDirectInput)
 	{
@@ -554,6 +557,7 @@ void UVehicleDriveAssemblyComponent::ServerInputBrake_Implementation(float InVal
 
 void UVehicleDriveAssemblyComponent::MultiCastInputBrake_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	APawn* p = Cast<APawn>(GetOwner());
 	if (p && !p->IsLocallyControlled() && !p->HasAuthority())
 	{
@@ -574,6 +578,7 @@ void UVehicleDriveAssemblyComponent::MultiCastInputBrake_Implementation(float In
 
 void UVehicleDriveAssemblyComponent::ServerInputClutch_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	InputValues.Raw.Clutch = InValue;
 	if (bDirectInput)
 	{
@@ -584,6 +589,7 @@ void UVehicleDriveAssemblyComponent::ServerInputClutch_Implementation(float InVa
 
 void UVehicleDriveAssemblyComponent::MultiCastInputClutch_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	APawn* p = Cast<APawn>(GetOwner());
 	if (p && !p->IsLocallyControlled() && !p->HasAuthority())
 	{
@@ -597,6 +603,7 @@ void UVehicleDriveAssemblyComponent::MultiCastInputClutch_Implementation(float I
 
 void UVehicleDriveAssemblyComponent::ServerInputSteering_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, -1.f, 1.f);
 	InputValues.Raw.Steering = InValue;
 	if (bDirectInput)
 	{
@@ -607,6 +614,7 @@ void UVehicleDriveAssemblyComponent::ServerInputSteering_Implementation(float In
 
 void UVehicleDriveAssemblyComponent::MultiCastInputSteering_Implementation(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, -1.f, 1.f);
 	APawn* p = Cast<APawn>(GetOwner());
 	if (p && !p->IsLocallyControlled() && !p->HasAuthority())
 	{
@@ -908,6 +916,7 @@ void UVehicleDriveAssemblyComponent::UpdatePhysics(float InDeltaTime)
 
 void UVehicleDriveAssemblyComponent::InputThrottle(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	if (!GetOwner()->HasAuthority())
 	{
 		InputValues.Raw.Throttle = InValue;
@@ -928,6 +937,7 @@ void UVehicleDriveAssemblyComponent::InputThrottle(float InValue, bool bDirectIn
 
 void UVehicleDriveAssemblyComponent::InputBrake(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	if (!GetOwner()->HasAuthority())
 	{
 		InputValues.Raw.Brake = InValue;
@@ -948,6 +958,7 @@ void UVehicleDriveAssemblyComponent::InputBrake(float InValue, bool bDirectInput
 
 void UVehicleDriveAssemblyComponent::InputClutch(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, 0.f, 1.f);
 	if (!GetOwner()->HasAuthority())
 	{
 		InputValues.Raw.Clutch = InValue;
@@ -961,6 +972,7 @@ void UVehicleDriveAssemblyComponent::InputClutch(float InValue, bool bDirectInpu
 
 void UVehicleDriveAssemblyComponent::InputSteering(float InValue, bool bDirectInput)
 {
+	InValue = FMath::Clamp(InValue, -1.f, 1.f);
 	if (!GetOwner()->HasAuthority())
 	{
 		InputValues.Raw.Steering = InValue;
