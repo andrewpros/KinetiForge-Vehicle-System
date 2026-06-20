@@ -337,25 +337,25 @@ private:
 		const FVector2f& UpperInner, const FVector2f& UpperOuter,
 		const FVector2f& ContactPatch
 	);
-	static float CalculateMacPhersonIntersectionSlope(
+	static float CalculateMacPhersonPitchSlope(
 		const FVector3f& TopMount, const FVector3f& StrutDir,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-		const FVector3f& HubLocation, float WheelRadius
+		const FVector3f& ImpactPointChassisLocation
 	);
-	static float CalculateMacPhersonRollCenterHeight(
+	static float CalculateMacPhersonRollSlope(
 		const FVector3f& TopMount, const FVector3f& StrutDir,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-		const FVector3f& HubLocation, float WheelRadius
+		const FVector3f& ImpactPointChassisLocation
 	);
-	static float CalculateDoubleWishboneIntersectionSlope(
+	static float CalculateDoubleWishbonePitchSlope(
 		const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-		const FVector3f& HubLocation, float WheelRadius
+		const FVector3f& ImpactPointChassisLocation
 	);
-	static float CalculateDoubleWishboneRollCenterHeight(
+	static float CalculateDoubleWishboneRollSlope(
 		const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 		const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-		const FVector3f& HubLocation, float WheelRadius
+		const FVector3f& ImpactPointChassisLocation
 	);
 	static void ComputeAntiPitchRollGeometry(
 		FVehicleSuspensionSimContext& Ctx,

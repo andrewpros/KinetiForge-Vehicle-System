@@ -1773,96 +1773,124 @@ float FVehicleSuspensionSolver::SolveSwingArmSlope2D(
 	float Slope = 0.f;
 	float DeltaX = 0.f;
 
-	// if not parallel
-	if (Solve2DLineIntersection(LowerInner, LowerOuter, UpperInner, UpperOuter, IC))
+	// get direction
+	FVector2f DirLower = (LowerOuter - LowerInner).GetSafeNormal();
+	FVector2f DirUpper = (UpperOuter - UpperInner).GetSafeNormal();
+
+	// cross product
+	float CrossProd = DirLower.X * DirUpper.Y - DirLower.Y * DirUpper.X;
+
+	if (FMath::Abs(CrossProd) < KINDA_SMALL_NUMBER)
 	{
-		DeltaX = IC.X - ContactPatch.X;
-		if (FMath::Abs(DeltaX) > 0.001f)
+		// [Parallel Reduction]
+		// If the arms are nearly parallel, the instantaneous center (IC) lies at infinity.
+		// The slope of the line from the point of contact to infinity is equal to the average slope of the arms.
+		FVector2f AvgDir = (DirLower + DirUpper).GetSafeNormal();
+
+		if (FMath::Abs(AvgDir.X) > KINDA_SMALL_NUMBER)
 		{
-			Slope = (IC.Y - ContactPatch.Y) / DeltaX;
+			Slope = AvgDir.Y / AvgDir.X;
+		}
+		else
+		{
+			// If the control arm is completely perpendicular to the ground 
+			// (an almost impossible suspension configuration)
+			// Slope will be INF, so I skip the calculation
+		}
+	}
+	else
+	{
+		if (Solve2DLineIntersection(LowerInner, LowerOuter, UpperInner, UpperOuter, IC))
+		{
+			DeltaX = IC.X - ContactPatch.X;
+
+			if (FMath::Abs(DeltaX) > KINDA_SMALL_NUMBER)
+			{
+				Slope = (IC.Y - ContactPatch.Y) / DeltaX;
+			}
+			else
+			{
+				// The IC is directly above/below the contact point
+				// Slope will be INF, so I skip the calculation
+			}
 		}
 	}
 	return Slope;
 }
 
-float FVehicleSuspensionSolver::CalculateMacPhersonIntersectionSlope(
+float FVehicleSuspensionSolver::CalculateMacPhersonPitchSlope(
 	const FVector3f& TopMount, const FVector3f& StrutDir,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-	const FVector3f& HubLocation, float WheelRadius)
-{
-	// 1. 下摆臂的终极物理约束：计算球头瞬时速度
+	const FVector3f& ImpactPointChassisLocation)
+{	
+	// Calculate the instantaneous velocity of the ball head
 	FVector3f RadiusVec = LowerBallJoint - LowerPivot;
 	FVector3f Vel = FVector3f::CrossProduct(LowerAxis, RadiusVec);
 
-	// 速度向量 (Vx, Vz) 的 2D 垂直法线永远是 (-Vz, Vx)
+	// The 2D perpendicular normal to the velocity vectors (Vx, Vz) is always (-Vz, Vx)
 	FVector2f P1(LowerBallJoint.X, LowerBallJoint.Z);
 	FVector2f P2(P1.X - Vel.Z, P1.Y + Vel.X);
 
-	// 2. 塔顶约束不变
+	// top mount constraint
 	FVector2f Top2D(TopMount.X, TopMount.Z);
 	FVector2f TopNormal2D(Top2D.X - StrutDir.Z * 100.f, Top2D.Y + StrutDir.X * 100.f);
 
-	float Slope = SolveSwingArmSlope2D(P1, P2, Top2D, TopNormal2D, FVector2f(HubLocation.X, HubLocation.Z - WheelRadius));
-	return Slope; // 纯斜率，不上绝对值
+	float Slope = SolveSwingArmSlope2D(P1, P2, Top2D, TopNormal2D, FVector2f(ImpactPointChassisLocation.X, ImpactPointChassisLocation.Z));
+	return Slope;
 }
 
-float FVehicleSuspensionSolver::CalculateMacPhersonRollCenterHeight(
+float FVehicleSuspensionSolver::CalculateMacPhersonRollSlope(
 	const FVector3f& TopMount, const FVector3f& StrutDir,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-	const FVector3f& HubLocation, float WheelRadius)
+	const FVector3f& ImpactPointChassisLocation)
 {
 	FVector3f RadiusVec = LowerBallJoint - LowerPivot;
 	FVector3f Vel = FVector3f::CrossProduct(LowerAxis, RadiusVec);
 
-	// 速度向量在 Y-Z 平面的垂直法线：(-Vz, Vy)
 	FVector2f P1(LowerBallJoint.Y, LowerBallJoint.Z);
 	FVector2f P2(P1.X - Vel.Z, P1.Y + Vel.Y);
 
 	FVector2f Top2D(TopMount.Y, TopMount.Z);
 	FVector2f TopNormal2D(Top2D.X - StrutDir.Z * 100.f, Top2D.Y + StrutDir.Y * 100.f);
 
-	FVector2f Contact2D(HubLocation.Y, HubLocation.Z - WheelRadius);
-	float Slope = SolveSwingArmSlope2D(P1, P2, Top2D, TopNormal2D, Contact2D);
-
-	return Contact2D.Y - Slope * Contact2D.X;
+	FVector2f Contact2D(ImpactPointChassisLocation.Y, ImpactPointChassisLocation.Z);
+	return SolveSwingArmSlope2D(P1, P2, Top2D, TopNormal2D, Contact2D);
 }
 
-float FVehicleSuspensionSolver::CalculateDoubleWishboneIntersectionSlope(
+float FVehicleSuspensionSolver::CalculateDoubleWishbonePitchSlope(
 	const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-	const FVector3f& HubLocation, float WheelRadius)
+	const FVector3f& ImpactPointChassisLocation)
 {
-	// 下摆臂 3D 速度投影
+	// Lower Control Arm 3D Velocity Projection
 	FVector3f VelLower = FVector3f::CrossProduct(LowerAxis, LowerBallJoint - LowerPivot);
 	FVector2f P1(LowerBallJoint.X, LowerBallJoint.Z);
 	FVector2f P2(P1.X - VelLower.Z, P1.Y + VelLower.X);
 
-	// 上摆臂 3D 速度投影
+	// Upper control arm 3D velocity projection
 	FVector3f VelUpper = FVector3f::CrossProduct(UpperAxis, UpperBallJoint - UpperPivot);
 	FVector2f P3(UpperBallJoint.X, UpperBallJoint.Z);
 	FVector2f P4(P3.X - VelUpper.Z, P3.Y + VelUpper.X);
 
-	float Slope = SolveSwingArmSlope2D(P1, P2, P3, P4, FVector2f(HubLocation.X, HubLocation.Z - WheelRadius));
+	float Slope = SolveSwingArmSlope2D(P1, P2, P3, P4, FVector2f(ImpactPointChassisLocation.X, ImpactPointChassisLocation.Z));
 	return Slope;
 }
 
-float FVehicleSuspensionSolver::CalculateDoubleWishboneRollCenterHeight(
+float FVehicleSuspensionSolver::CalculateDoubleWishboneRollSlope(
 	const FVector3f& UpperPivot, const FVector3f& UpperBallJoint, const FVector3f& UpperAxis,
 	const FVector3f& LowerPivot, const FVector3f& LowerBallJoint, const FVector3f& LowerAxis,
-	const FVector3f& HubLocation, float WheelRadius)
+	const FVector3f& ImpactPointChassisLocation)
 {
 	FVector3f VelLower = FVector3f::CrossProduct(LowerAxis, LowerBallJoint - LowerPivot);
 	FVector2f P1(LowerBallJoint.Y, LowerBallJoint.Z);
-	FVector2f P2(P1.X - VelLower.Z, P1.Y + VelLower.Y); // (-Vz, Vy)
+	FVector2f P2(P1.X - VelLower.Z, P1.Y + VelLower.Y);
 
 	FVector3f VelUpper = FVector3f::CrossProduct(UpperAxis, UpperBallJoint - UpperPivot);
 	FVector2f P3(UpperBallJoint.Y, UpperBallJoint.Z);
 	FVector2f P4(P3.X - VelUpper.Z, P3.Y + VelUpper.Y);
 
-	FVector2f Contact2D(HubLocation.Y, HubLocation.Z - WheelRadius);
-	float Slope = SolveSwingArmSlope2D(P1, P2, P3, P4, Contact2D);
-
-	return Contact2D.Y - Slope * Contact2D.X;
+	FVector2f Contact2D(ImpactPointChassisLocation.Y, ImpactPointChassisLocation.Z);
+	return SolveSwingArmSlope2D(P1, P2, P3, P4, Contact2D);
 }
 
 void FVehicleSuspensionSolver::ComputeAntiPitchRollGeometry(
@@ -1884,126 +1912,97 @@ void FVehicleSuspensionSolver::ComputeAntiPitchRollGeometry(
 	float Compression = 1.f - Ctx.CurrentExtensionRatio;
 
 	// get world com
-	Chaos::FVec3 ChassisWorldCOM = ChassisState.CoMWorldLocation;
+	const FVector& ChassisWorldCOM = ChassisState.CoMWorldLocation;
 
-	// get arm
-	Chaos::FVec3 LeverArmVec = Ctx.HitResult.ImpactPoint - ChassisWorldCOM;
-	float LeverArmLengthSq = LeverArmVec.SquaredLength();
+	// tire force in chassis space
+	FVector TireForceChassis = AsyncChassisWorldTransform.InverseTransformVectorNoScale((FVector)TireForce);
 
-	// get torque caused by tire force
-	Chaos::FVec3 InducedTorqueWorld = Chaos::FVec3::CrossProduct(LeverArmVec, TireForce);
+	// get arm and com height
+	FVector LeverArmVecChassis = AsyncChassisWorldTransform.InverseTransformVectorNoScale(Ctx.HitResult.ImpactPoint - ChassisWorldCOM);
+	float DynamicLx = FMath::Abs(LeverArmVecChassis.X);
+	float DynamicLy = FMath::Abs(LeverArmVecChassis.Y);
+	FVector3f ImpactPointChassis = (FVector3f)AsyncChassisWorldTransform.InverseTransformPositionNoScale(Ctx.HitResult.ImpactPoint);
+	float GroundZ = ImpactPointChassis.Z;
+	float COM_Z = AsyncChassisWorldTransform.InverseTransformPositionNoScale(ChassisWorldCOM).Z;
+	float TrueCOMHeight = FMath::Abs(COM_Z - GroundZ);
 
-	// transform torque into Chassis space
-	Chaos::FVec3 InducedTorqueLocal = AsyncChassisWorldTransform.GetRotation().UnrotateVector(InducedTorqueWorld);
-
-	float GeomAntiPitch = 0.f;
-	float GeomAntiRoll = 0.f;
+	float GeomPitchSlope = 0.f;
+	float GeomRollSlope = 0.f;
 	if (!bOnlyFromLUTs)
 	{
-		FVector LeverArmVecChassis = AsyncChassisWorldTransform.InverseTransformVectorNoScale(LeverArmVec);
-
-		float GroundZ = Ctx.HubChassisTransform.GetLocation().Z - WheelRadius;
-
-		float COM_Z = AsyncChassisWorldTransform.InverseTransformPositionNoScale(ChassisWorldCOM).Z;
-
-		float TrueCOMHeight = COM_Z - GroundZ;
-
-		float RollCenterHeight = 0.f;
-		float GeomSlope = 0.f;
-		float TrueRCHeight = 0.f;
 		switch (SuspensionType)
 		{
 		case EVehicleIndependentSuspensionType::StraightLine:
 			break;
 		case EVehicleIndependentSuspensionType::Macpherson:
-			GeomSlope = CalculateMacPhersonIntersectionSlope(
+			GeomPitchSlope = CalculateMacPhersonPitchSlope(
 				Ctx.TopMountChassisLocation,
 				Ctx.StrutChassisDirection,
 				Ctx.LowerPivotChassisLocation,
 				Ctx.LowerBallJointChassisLocation,
 				Ctx.LowerWishboneChassisAxis,
-				Ctx.HubChassisTransform.GetLocation(),
-				WheelRadius
+				ImpactPointChassis
 			);
-			GeomAntiPitch = GeomSlope * UVehicleUtilities::SafeDivide(LeverArmVecChassis.X, LeverArmVecChassis.Z);
-			RollCenterHeight = CalculateMacPhersonRollCenterHeight(
+			GeomRollSlope = CalculateMacPhersonRollSlope(
 				Ctx.TopMountChassisLocation,
 				Ctx.StrutChassisDirection,
 				Ctx.LowerPivotChassisLocation,
 				Ctx.LowerBallJointChassisLocation,
 				Ctx.LowerWishboneChassisAxis,
-				Ctx.HubChassisTransform.GetLocation(),
-				WheelRadius
+				ImpactPointChassis
 			);
-			TrueRCHeight = RollCenterHeight - GroundZ;
-			GeomAntiRoll = UVehicleUtilities::SafeDivide(TrueRCHeight, TrueCOMHeight);
 			break;
 		case EVehicleIndependentSuspensionType::DoubleWishbone:
-			GeomSlope = CalculateDoubleWishboneIntersectionSlope(
+			GeomPitchSlope = CalculateDoubleWishbonePitchSlope(
 				Ctx.UpperPivotChassisLocation,
 				Ctx.UpperBallJointChassisLocation,
 				Ctx.UpperWishboneChassisAxis,
 				Ctx.LowerPivotChassisLocation,
 				Ctx.LowerBallJointChassisLocation,
 				Ctx.LowerWishboneChassisAxis,
-				Ctx.HubChassisTransform.GetLocation(),
-				WheelRadius
+				ImpactPointChassis
 			);
-			GeomAntiPitch = GeomSlope * UVehicleUtilities::SafeDivide(LeverArmVecChassis.X, LeverArmVecChassis.Z);
-			RollCenterHeight = CalculateDoubleWishboneRollCenterHeight(
+			GeomRollSlope = CalculateDoubleWishboneRollSlope(
 				Ctx.UpperPivotChassisLocation,
 				Ctx.UpperBallJointChassisLocation,
 				Ctx.UpperWishboneChassisAxis,
 				Ctx.LowerPivotChassisLocation,
 				Ctx.LowerBallJointChassisLocation,
 				Ctx.LowerWishboneChassisAxis,
-				Ctx.HubChassisTransform.GetLocation(),
-				WheelRadius
+				ImpactPointChassis
 			);
-			TrueRCHeight = RollCenterHeight - GroundZ;
-			GeomAntiRoll = UVehicleUtilities::SafeDivide(TrueRCHeight, TrueCOMHeight);
 			break;
 		default:
 			break;
 		}
 	}
-	
+
+	float GeomAntiPitchRatio = GeomPitchSlope * UVehicleUtilities::SafeDivide(DynamicLx, TrueCOMHeight);
+	float GeomAntiRollRatio = GeomRollSlope * UVehicleUtilities::SafeDivide(DynamicLy, TrueCOMHeight);
+		
 	// anti-pitch from LUT
-	bool bIsDiving = InducedTorqueLocal.Y > 0.f;
-	float LUT_AntiPitch = bIsDiving ?
+	bool bIsBraking = TireForceChassis.X < 0.f;
+	float LUT_AntiPitchRatio = bIsBraking ?
 		LUTs.AntiDiveCurve.FastEval(Compression).Value :
 		LUTs.AntiSquatCurve.FastEval(Compression).Value;
 
 	// anti-roll from LUT
-	float LUT_AntiRoll = LUTs.AntiRollCurve.FastEval(Compression).Value;
+	float LUT_AntiRollRatio = LUTs.AntiRollCurve.FastEval(Compression).Value;
 
-	// combine together
-	Ctx.AntiPitchScale = GeomAntiPitch + LUT_AntiPitch;
-	Ctx.AntiRollScale = GeomAntiRoll + LUT_AntiRoll;
+	float FinalAntiPitchRatio = GeomAntiPitchRatio + LUT_AntiPitchRatio;
+	float FinalAntiRollRatio = GeomAntiRollRatio + LUT_AntiRollRatio;
+	Ctx.AntiPitchScale = FinalAntiPitchRatio;
+	Ctx.AntiRollScale = FinalAntiRollRatio;
 
-	// get counter torque
-	Chaos::FVec3 TargetCounterTorqueLocal =
-		-Chaos::FVec3(InducedTorqueLocal.X * Ctx.AntiRollScale, InducedTorqueLocal.Y * Ctx.AntiPitchScale, 0.f);
+	float FinalPitchSlope = FinalAntiPitchRatio * UVehicleUtilities::SafeDivide(TrueCOMHeight, DynamicLx);
+	float FinalRollSlope = FinalAntiRollRatio * UVehicleUtilities::SafeDivide(TrueCOMHeight, DynamicLy);
 
-	// get counter torque in world space
-	Chaos::FVec3 TargetCounterTorqueWorld = AsyncChassisWorldTransform.GetRotation().RotateVector(TargetCounterTorqueLocal);
+	float JackingForceChassisZ = (TireForceChassis.X * FinalPitchSlope) + (TireForceChassis.Y * FinalRollSlope);
 
-	// get normal of ground
-	FVector ImpactNormal = Ctx.HitResult.Normal;
+	FVector ChassisUpWorld = AsyncChassisWorldTransform.GetRotation().GetUpVector();
+	float UpDotNormal = FMath::Max(0.1f, FVector::DotProduct(ChassisUpWorld, Ctx.HitResult.Normal));
 
-	// Torque Axis for Normal Force (1N)
-	Chaos::FVec3 NormalTorqueAxis = Chaos::FVec3::CrossProduct(LeverArmVec, ImpactNormal);
-	float EffectiveLeverArmSq = NormalTorqueAxis.SizeSquared();
-
-	float MinLeverArmSq = FMath::Square(WheelRadius);
-	EffectiveLeverArmSq = FMath::Max(EffectiveLeverArmSq, MinLeverArmSq);
-
-	// get jacking force
-	Ctx.JackingForce = UVehicleUtilities::SafeDivide(
-		(float)Chaos::FVec3::DotProduct(TargetCounterTorqueWorld, NormalTorqueAxis),
-		EffectiveLeverArmSq
-	);
-
+	Ctx.JackingForce = JackingForceChassisZ * UpDotNormal;
 	Ctx.ForceAlongImpactNormal += Ctx.JackingForce;
 }
 
