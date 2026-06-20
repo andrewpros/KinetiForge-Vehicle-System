@@ -155,9 +155,12 @@ void UVehicleDriveAssemblyComponent::UpdateInput(float InDeltaTime)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForgeVehicle_DriveAssembly_UpdateInput);
 
-	if (AutoGearboxConfig.bAutomaticGearbox && AutoGearboxConfig.bArcadeAutoGearbox)
+	if (UVehicleGearboxComponent* GearboxRaw = Gearbox.Get())
 	{
-		InputValues.bSwitchThrottleAndBrake = Gearbox->GetCurrentGear() < 0;
+		if (AutoGearboxConfig.bAutomaticGearbox && AutoGearboxConfig.bArcadeAutoGearbox)
+		{
+			InputValues.bSwitchThrottleAndBrake = GearboxRaw->GetCurrentGear() < 0;
+		}
 	}
 	else
 	{
