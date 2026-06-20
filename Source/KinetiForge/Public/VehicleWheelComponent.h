@@ -97,11 +97,11 @@ protected:
 	void ApplyWheelForce(Chaos::FRigidBodyHandle_Internal* const ChassisHandle);
 
 	UPROPERTY()
-	TObjectPtr<USceneComponent> WheelHubComponent;
+	TWeakObjectPtr<USceneComponent> WheelHubComponent;
 	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> WheelMeshComponent;
+	TWeakObjectPtr<UStaticMeshComponent> WheelMeshComponent;
 	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> BrakeMeshComponent;
+	TWeakObjectPtr<UStaticMeshComponent> BrakeMeshComponent;
 	
 	//
 	UPROPERTY()
@@ -492,7 +492,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
 	void GetWheelAndBrakeMeshComponents(UStaticMeshComponent*& OutWheel, UStaticMeshComponent*& OutBrake)
 	{
-		OutWheel = WheelMeshComponent; OutBrake = BrakeMeshComponent;
+		OutWheel = WheelMeshComponent.Get(); OutBrake = BrakeMeshComponent.Get();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VehicleWheel")
@@ -508,7 +508,7 @@ public:
 	void UpdateWheelAnim(float DeltaTime = 0.f, float MaxAnimAngularVelocity = 60.f);
 
 	UFUNCTION(BlueprintCallable, Category = "VehicleWheel")
-	USceneComponent* GetWheelHubComponent() { return WheelHubComponent; }
+	USceneComponent* GetWheelHubComponent() { return WheelHubComponent.Get(); }
 
 	/**
 	* Compute and return the world location and world rotation of skid mark.

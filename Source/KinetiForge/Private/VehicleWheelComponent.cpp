@@ -16,16 +16,7 @@ UVehicleWheelComponent::UVehicleWheelComponent()
 	PrimaryComponentTick.TickGroup = ETickingGroup::TG_PrePhysics;
 
 	// ...
-	// add meshes
-	FString ThisName = FString();
-	GetName(ThisName);
-	FName NameWheelHub = FName(ThisName + "_WheelHub");
-	FName NameWheelMesh = FName(ThisName + "_WheelMesh");
-	FName NameBrakeMesh = FName(ThisName + "_BrakeMesh");
-	WheelHubComponent = Cast<USceneComponent>(CreateDefaultSubobject<USceneComponent>(NameWheelHub));
-	WheelMeshComponent = Cast<UStaticMeshComponent>(CreateDefaultSubobject<UStaticMeshComponent>(NameWheelMesh));
-	BrakeMeshComponent = Cast<UStaticMeshComponent>(CreateDefaultSubobject<UStaticMeshComponent>(NameBrakeMesh));
-
+	
 	//load default wheel mesh
 	if (!WheelMesh)
 	{
@@ -140,19 +131,19 @@ void UVehicleWheelComponent::OnRegister()
 
 void UVehicleWheelComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
-	if (IsValid(WheelHubComponent) && !WheelHubComponent->IsBeingDestroyed())
+	if (WheelHubComponent.IsValid() && !WheelHubComponent->IsBeingDestroyed())
 	{
 		WheelHubComponent->DestroyComponent();
 	}
 	WheelHubComponent = nullptr;
 
-	if (IsValid(WheelMeshComponent) && !WheelMeshComponent->IsBeingDestroyed())
+	if (WheelMeshComponent.IsValid() && !WheelMeshComponent->IsBeingDestroyed())
 	{
 		WheelMeshComponent->DestroyComponent();
 	}
 	WheelMeshComponent = nullptr;
 
-	if (IsValid(BrakeMeshComponent) && !BrakeMeshComponent->IsBeingDestroyed())
+	if (BrakeMeshComponent.IsValid() && !BrakeMeshComponent->IsBeingDestroyed())
 	{
 		BrakeMeshComponent->DestroyComponent();
 	}
@@ -178,16 +169,59 @@ void UVehicleWheelComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 
 bool UVehicleWheelComponent::InitializeMeshComponents()
 {
-	if (!IsValid(WheelHubComponent) || !IsValid(WheelMeshComponent) || !IsValid(BrakeMeshComponent))return false;
+	UObject* Outer = nullptr;
+	if (AActor* Owner = GetOwner())Outer = Owner;
 
-	if (WheelHubComponent->GetAttachParent() != this)
-		WheelHubComponent->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+	if (!IsValid(Outer))return false;
 
-	if (WheelMeshComponent->GetAttachParent() != WheelHubComponent)
-	WheelMeshComponent->AttachToComponent(WheelHubComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	// add meshes
+	FString ThisName = FString();
+	GetName(ThisName);
+	if (!WheelHubComponent.IsValid())
+	{
+		FName Name = FName(ThisName + "_WheelHub");
+		WheelHubComponent = UVehicleUtilities::CreateComponentByClass<USceneComponent>(
+			Outer,
+			nullptr,
+			Name
+		);
+	}
+	if (!WheelMeshComponent.IsValid())
+	{
+		FName Name = FName(ThisName + "_WheelMesh");
+		WheelMeshComponent = UVehicleUtilities::CreateComponentByClass<UStaticMeshComponent>(
+			Outer,
+			nullptr,
+			Name
+		);
+	}
+	if (!BrakeMeshComponent.IsValid())
+	{
+		FName Name = FName(ThisName + "_BrakeMesh");
+		BrakeMeshComponent = UVehicleUtilities::CreateComponentByClass<UStaticMeshComponent>(
+			Outer,
+			nullptr,
+			Name
+		);
+	}
 
-	if (BrakeMeshComponent->GetAttachParent() != WheelHubComponent)
-	BrakeMeshComponent->AttachToComponent(WheelHubComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	if (USceneComponent* Hub = WheelHubComponent.Get())
+	{
+		if (Hub->GetAttachParent() != this)
+			Hub->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+
+		if (UStaticMeshComponent* Mesh = WheelMeshComponent.Get())
+		{
+			if (Mesh->GetAttachParent() != Hub)
+				Mesh->AttachToComponent(Hub, FAttachmentTransformRules::KeepRelativeTransform);
+		}
+
+		if (UStaticMeshComponent* Mesh = BrakeMeshComponent.Get())
+		{
+			if (Mesh->GetAttachParent() != Hub)
+				Mesh->AttachToComponent(Hub, FAttachmentTransformRules::KeepRelativeTransform);
+		}
+	}
 
 	return RefreshWheelMesh();
 }
@@ -894,7 +928,7 @@ bool UVehicleWheelComponent::SetMesh(
 	UStaticMesh* NewBrakeMesh, 
 	FTransform BrakeMeshRelativeTransform)
 {
-	if (!IsValid(WheelHubComponent) || !IsValid(WheelMeshComponent) || !IsValid(BrakeMeshComponent))return false;
+	if (!WheelHubComponent.IsValid() || !WheelMeshComponent.IsValid() || !BrakeMeshComponent.IsValid())return false;
 
 	WheelHubComponent->PrimaryComponentTick.bCanEverTick = false;
 	WheelHubComponent->PrimaryComponentTick.bStartWithTickEnabled = false;
@@ -942,8 +976,6 @@ bool UVehicleWheelComponent::RefreshWheelMesh()
 
 void UVehicleWheelComponent::UpdateWheelAnim(float DeltaTime, float MaxAnimAngularVelocity)
 {
-	if (!IsValid(WheelHubComponent) || !IsValid(WheelMeshComponent))return;
-
 	TRACE_CPUPROFILER_EVENT_SCOPE(KinetiForge_Wheel_UpdateAnimation);
 
 	// update wheel position & alignment
@@ -972,12 +1004,16 @@ void UVehicleWheelComponent::UpdateWheelAnim(float DeltaTime, float MaxAnimAngul
 		GetRelativeTransform().InverseTransformPositionNoScale((FVector)AnimHubChassisLocation),
 			FVector(1.f)
 	);
-	WheelHubComponent->SetRelativeTransform(
-		T,
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
-	);
+
+	if (USceneComponent* Hub = WheelHubComponent.Get())
+	{
+		WheelHubComponent->SetRelativeTransform(
+			T,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+	}
 	
 	// update wheel spin
 	float Omega = (MaxAnimAngularVelocity > 0.f) ?
@@ -989,9 +1025,9 @@ void UVehicleWheelComponent::UpdateWheelAnim(float DeltaTime, float MaxAnimAngul
 
 	FQuat NewRot = FQuat(FVector(0.f, 1.f, 0.f), FMath::DegreesToRadians(AnimWheelRotationAngle));
 
-	if (IsValid(WheelMeshComponent))
+	if (UStaticMeshComponent* Mesh = WheelMeshComponent.Get())
 	{
-		WheelMeshComponent->SetRelativeRotation(
+		Mesh->SetRelativeRotation(
 			NewRot,
 			false,
 			nullptr,
@@ -1232,10 +1268,10 @@ void UVehicleWheelComponent::AttachComponentToWheelHub(
 	USceneComponent* InComponent,
 	bool bKeepWorldTransform)
 {
-	if (InComponent)
+	if (InComponent && WheelHubComponent.IsValid())
 	{
 		InComponent->AttachToComponent(
-			WheelHubComponent, 
+			WheelHubComponent.Get(),
 			bKeepWorldTransform ? FAttachmentTransformRules::KeepWorldTransform : FAttachmentTransformRules::KeepRelativeTransform
 		);
 	}

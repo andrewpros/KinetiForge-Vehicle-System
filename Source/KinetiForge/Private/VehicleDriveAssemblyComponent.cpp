@@ -817,7 +817,7 @@ void UVehicleDriveAssemblyComponent::UpdatePhysics(float InDeltaTime)
 		UpdateInput(RealSubstepDeltaTime);
 
 		// update engine
-		float ClutchTorque = (NumOfDriveAxles > 0) ? Clutch->GetCluchTorque() : 0.f;
+		float ClutchTorque = (NumOfDriveAxles > 0) ? ClutchRaw->GetCluchTorque() : 0.f;
 		// sequential transmission disables spark when shifting up
 		bool bDisableSpark = GearboxRaw->GetShouldCutSpark();
 		EngineRaw->UpdatePhysics(RealSubstepDeltaTime, InputValues.Final.Throttle, ClutchTorque, bDisableSpark);
